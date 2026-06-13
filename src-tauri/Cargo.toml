@@ -1,0 +1,41 @@
+[package]
+name = "claude-guard"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "claude_guard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "claude-guard"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-store = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+network-interface = "2"
+log = "0.4"
+env_logger = "0.11"
+chrono = { version = "0.4", features = ["serde"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# pfctl через Command
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# iptables/nftables через Command
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# netsh через Command
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

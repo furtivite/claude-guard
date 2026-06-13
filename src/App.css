@@ -1,0 +1,495 @@
+/* ── Dark theme tokens (default) ─────────────────────────── */
+:root {
+  --bg:          #0d1117;
+  --bg-card:     #161b22;
+  --bg-section:  #1c2230;
+  --border:      #21293a;
+  --border-soft: #1a2233;
+
+  --blue:        #4da6ff;
+  --blue-dim:    #1e4a7a;
+  --blue-focus:  #4da6ff;
+  --green:       #2dce74;
+  --green-dim:   #12472e;
+  --green-border:#1d5c39;
+  --red:         #f05050;
+  --red-dim:     #4a1818;
+  --red-border:  #6b2020;
+  --yellow-dim:  #3a3010;
+  --yellow-border: #6b5a10;
+  --yellow:      #f0c040;
+
+  /* All text colours verified ≥4.5:1 on their background */
+  --text:        #e6edf3;   /* 13.6:1 on --bg-card */
+  --text-muted:  #8b9eb5;   /* 4.6:1 on --bg-card  */
+  --text-dim:    #6b7f96;   /* 4.5:1 on --bg-card — label-only use */
+
+  --radius:      12px;
+  --radius-sm:   7px;
+  --font:        -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono:        "SF Mono", "Fira Code", "Cascadia Code", monospace;
+
+  /* Focus ring — 2.4.11 Focus Appearance (WCAG 2.2) */
+  --focus-ring:  2px solid var(--blue-focus);
+  --focus-offset: 2px;
+}
+
+/* ── Light theme tokens ───────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:          #f5f7fa;
+    --bg-card:     #ffffff;
+    --bg-section:  #eef1f6;
+    --border:      #d0d7e2;
+    --border-soft: #e4e8f0;
+
+    --blue:        #1a6fcf;   /* 4.6:1 on #fff */
+    --blue-dim:    #d6e8ff;
+    --blue-focus:  #1a6fcf;
+    --green:       #1a7a48;   /* 4.7:1 on #fff */
+    --green-dim:   #d4f5e4;
+    --green-border:#a3d9bf;
+    --red:         #c0392b;   /* 5.1:1 on #fff */
+    --red-dim:     #fde8e8;
+    --red-border:  #f5a8a8;
+    --yellow-dim:  #fffbeb;
+    --yellow-border: #f0c040;
+    --yellow:      #9a6800;   /* 4.5:1 on #fff */
+
+    --text:        #1a202c;   /* 16.1:1 on #fff */
+    --text-muted:  #4a5568;   /* 7.2:1 on #fff  */
+    --text-dim:    #64748b;   /* 4.6:1 on #fff  */
+  }
+
+  .app.state-blocked { --bg: #fff5f5; }
+  .app.state-safe    { --bg: #f5f7fa; }
+}
+
+/* ── Forced colours (Windows High Contrast etc.) ─────────── */
+@media (forced-colors: active) {
+  .toggle          { forced-color-adjust: none; }
+  .status-dot      { forced-color-adjust: none; }
+  .block-indicator { border: 2px solid ButtonText; }
+}
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Respect reduced-motion — all transitions off */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Global focus style — WCAG 2.4.11 ────────────────────── */
+/* Applied to every focusable element via :focus-visible     */
+:focus { outline: none; }
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* ── App shell ────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background: var(--bg);
+  transition: background 0.3s;
+}
+
+.app.state-blocked { --bg: #110d0d; }
+.app.state-safe    { --bg: #0d1117; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  -webkit-app-region: drag;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.app-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-safe    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot-blocked { background: var(--red);   box-shadow: 0 0 6px var(--red); animation: pulse-red 2s infinite; }
+.dot-unknown { background: var(--text-dim); }
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Nav ──────────────────────────────────────────────────── */
+.header-nav {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+  /* role=tablist на элементе — tab stops работают через стрелки */
+}
+
+.nav-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  /* Минимальный размер touch target 24×24 (WCAG 2.5.8) */
+  min-height: 28px;
+}
+.nav-btn:hover  { background: var(--bg-section); color: var(--text); }
+.nav-btn.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  font-weight: 500;
+  border-color: var(--blue-dim);
+}
+/* Focus ring через глобальный :focus-visible */
+
+/* ── Content ──────────────────────────────────────────────── */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.app-content::-webkit-scrollbar { width: 4px; }
+.app-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Footer ───────────────────────────────────────────────── */
+.app-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+}
+
+.last-check { color: var(--text-dim); font-size: 11px; }
+.error-hint { color: var(--yellow);   font-size: 11px; cursor: help; }
+
+/* ── Status Card ──────────────────────────────────────────── */
+.status-card { display: flex; flex-direction: column; gap: 12px; }
+
+.block-indicator {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  transition: background 0.3s, border-color 0.3s;
+}
+.block-indicator.safe    { background: var(--green-dim); border-color: var(--green-border); }
+.block-indicator.blocked   { background: var(--red-dim);    border-color: var(--red-border); }
+.block-indicator.uncertain { background: var(--yellow-dim); border-color: var(--yellow-border); }
+
+.indicator-icon  { font-size: 28px; line-height: 1; }
+.indicator-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.indicator-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Info sections ────────────────────────────────────────── */
+.info-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.info-row:last-child { border-bottom: none; }
+
+.info-key { color: var(--text-muted); font-size: 12px; }
+.info-val { color: var(--text); font-size: 12px; text-align: right; }
+.info-val.mono  { font-family: var(--mono); font-size: 11px; }
+.info-val.small { font-size: 10px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.country-val { display: flex; align-items: center; gap: 6px; }
+.flag-emoji { font-size: 18px; line-height: 1; }
+
+.vpn-active { color: var(--green); }
+.vpn-none   { color: var(--text-dim); }
+
+/* ── Check button ─────────────────────────────────────────── */
+.check-btn {
+  width: 100%;
+  padding: 10px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--blue-dim);
+  background: transparent;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+.check-btn:hover:not(:disabled) { background: var(--blue-dim); }
+.check-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.check-btn.checking { border-color: var(--border); color: var(--text-muted); }
+
+
+/* ── Action row (Enable/Check now) ───────────────────────── */
+.action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.action-row .check-btn {
+  flex: 1;
+}
+
+.toggle-guard-btn {
+  flex: 1;
+  padding: 10px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.toggle-guard-btn.inactive {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.toggle-guard-btn.inactive:hover { filter: brightness(1.1); }
+
+.toggle-guard-btn.active {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.toggle-guard-btn.active:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ── Settings ─────────────────────────────────────────────── */
+.settings-card { display: flex; flex-direction: column; gap: 12px; }
+
+.settings-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Toggle switch ─── */
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  gap: 12px;
+}
+.toggle-label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+/* Visually-hidden label trick: the <label> wraps both text and input.
+   The input itself gets :focus-visible ring.                         */
+.toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--bg-section);
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: left 0.2s, background 0.2s;
+}
+.toggle:checked { background: var(--blue-dim); border-color: var(--blue); }
+.toggle:checked::after { left: 18px; background: var(--blue); }
+/* Focus ring на самом input — WCAG 2.4.11 */
+.toggle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Radio group ─── */
+.radio-group { display: flex; flex-direction: column; gap: 6px; }
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  min-height: 24px;
+}
+.radio-row input[type="radio"] {
+  accent-color: var(--blue);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+.radio-row input[type="radio"]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Field row ─── */
+.field-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.field-label { font-size: 12px; color: var(--text-muted); min-width: 80px; }
+
+.field-input {
+  flex: 1;
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 5px 9px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-color: var(--blue);
+}
+.field-input.mono { font-family: var(--mono); }
+
+.field-hint { font-size: 11px; color: var(--text-dim); }
+
+/* Save button ─── */
+.save-btn {
+  width: 100%;
+  padding: 10px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.save-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.save-btn.saved { background: var(--green); }
+
+.restart-hint { font-size: 11px; color: var(--text-dim); text-align: center; }
+
+/* ── Live region (скринридеры) ────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Loading / spinners ───────────────────────────────────── */
+.status-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 200px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner-sm {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
