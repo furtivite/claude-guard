@@ -20,7 +20,6 @@ use guard::GuardState;
 
 pub type SharedState = Arc<Mutex<GuardState>>;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -70,8 +69,7 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
     let quit   = MenuItem::with_id(app, "quit",   "Quit",              true, None::<&str>)?;
     let menu   = Menu::with_items(app, &[&toggle, &show, &quit])?;
 
-    TrayIconBuilder::new()
-        .id("main")
+    TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .tooltip(if enabled { "Claude Guard — Active" } else { "Claude Guard — Disabled" })

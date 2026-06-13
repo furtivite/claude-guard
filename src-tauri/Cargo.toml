@@ -3,9 +3,6 @@ name = "claude-guard"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "claude_guard_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
 name = "claude-guard"
@@ -39,3 +36,6 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

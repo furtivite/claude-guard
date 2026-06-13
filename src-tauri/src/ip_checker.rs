@@ -93,8 +93,10 @@ async fn fetch() -> Result<IpInfo, String> {
         .no_proxy()
         // Только Mozilla WebPKI roots — корпоративные/антивирусные CA игнорируются.
         // Это предотвращает MITM через подменный доверенный CA в system store.
+        // Только Mozilla WebPKI roots — system CA store не используется.
+        // reqwest 0.12 + rustls: tls_built_in_root_certs(true) включает webpki-roots,
+        // встроенные нативные корни при этом не добавляются если явно не запросить.
         .tls_built_in_root_certs(true)
-        .tls_built_in_native_certs(false)
         .build()
         .map_err(|e| format!("HTTP client: {e}"))?;
 
