@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Guard — первичная настройка sudo-прав для firewall
+# Claude Guard — first-time firewall sudo setup
 set -euo pipefail
 
 echo "=== Claude Guard — Setup ==="
@@ -26,7 +26,6 @@ EOF
     read -rp "Your Linux username (whoami): " USERNAME
     [[ -z "$USERNAME" ]] && { echo "Username required"; exit 1; }
 
-    # Определяем что есть
     if command -v nft &>/dev/null; then
       FW_CMD="/usr/sbin/nft"
       echo "  Firewall: nftables"
@@ -41,7 +40,7 @@ EOF
     sudo chmod 440 /etc/sudoers.d/claude-guard
     echo "✓ sudoers configured for $FW_CMD"
 
-    # AppIndicator для GNOME
+    # AppIndicator for GNOME tray support
     if command -v apt-get &>/dev/null; then
       echo ""
       read -rp "Install libayatana-appindicator3 for GNOME tray? [Y/n]: " INST

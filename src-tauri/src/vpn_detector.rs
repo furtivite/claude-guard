@@ -1,27 +1,19 @@
-//! Определение активности VPN.
+//! VPN activity detection.
 //!
-//! `VpnDetector::is_active` используется как предусловие: если VPN не активен
-//! в режимах Port/Process — блокируем сразу, без IP-запроса.
-//! В режиме IpOnly решение принимается только по IP.
-//!
-//! `detect_interface` — отдельная индикация для UI, на логику блокировки не влияет.
+//! In Port/Process modes, an inactive VPN triggers an immediate block without
+//! querying the IP API. In IpOnly mode, only the IP country is evaluated.
 
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VpnMode {
+    #[default]
     IpOnly,
     Port,
     Process,
-}
-
-impl Default for VpnMode {
-    fn default() -> Self {
-        Self::IpOnly
-    }
 }
 
 pub struct VpnDetector {
@@ -43,7 +35,7 @@ impl VpnDetector {
         }
     }
 
-    /// Ищет VPN-интерфейс в системе. Результат — только для отображения в UI.
+    /// Returns the name of the active VPN interface, for display in the UI only.
     pub fn detect_interface() -> Option<String> {
         NetworkInterface::show()
             .unwrap_or_default()
@@ -51,7 +43,7 @@ impl VpnDetector {
             .find(|iface| {
                 let n = &iface.name;
                 !iface.addr.is_empty()
-                    && (n.starts_with("utun")  // macOS: любой туннель
+                    && (n.starts_with("utun")
                         || n.starts_with("tun")
                         || n.starts_with("wg")
                         || n.starts_with("ppp"))

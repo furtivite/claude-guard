@@ -58,7 +58,7 @@ Run `./install.sh` after installing — it configures `sudoers` for the detected
 ### Permission denied on firewall commands
 `install.sh` must be run after installing the app:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/your-username/claude-guard/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/furtivite/claude-guard/main/install.sh | bash
 ```
 Verify:
 ```bash

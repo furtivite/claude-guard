@@ -44,19 +44,19 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="status-loading" role="status" aria-label="Loading settings">
-        <div className="spinner" aria-hidden="true" />
+      <div className="flex flex-col items-center justify-center gap-3 h-[200px] text-[var(--text-muted)]" role="status" aria-label="Loading settings">
+        <div className="w-[22px] h-[22px] border-2 border-[var(--border)] border-t-[var(--blue)] rounded-full animate-spin" aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className="settings-card">
-      <section className="settings-section" aria-labelledby="hd-guard">
-        <h2 className="section-label" id="hd-guard">Guard</h2>
+    <div className="flex flex-col gap-3">
+      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px] flex flex-col gap-2" aria-labelledby="hd-guard">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)]" id="hd-guard">Guard</h2>
 
-        <label className="toggle-row">
-          <span className="toggle-label">Enable protection</span>
+        <label className="flex justify-between items-center py-1 gap-3">
+          <span className="text-[13px] cursor-pointer">Enable protection</span>
           <input
             type="checkbox"
             className="toggle"
@@ -66,15 +66,14 @@ export default function Settings() {
             onChange={async (e) => {
               const val = e.target.checked;
               set("enabled", val);
-              // Применяем немедленно — не ждём Save
               try { await invoke("cmd_toggle_enabled", { enabled: val }); }
               catch (err) { console.error(err); }
             }}
           />
         </label>
 
-        <label className="toggle-row">
-          <span className="toggle-label">Show in menu bar / tray</span>
+        <label className="flex justify-between items-center py-1 gap-3">
+          <span className="text-[13px] cursor-pointer">Show in menu bar / tray</span>
           <input
             type="checkbox"
             className="toggle"
@@ -86,22 +85,23 @@ export default function Settings() {
         </label>
       </section>
 
-      <section className="settings-section" aria-labelledby="hd-vpn">
-        <h2 className="section-label" id="hd-vpn">VPN detection</h2>
+      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px] flex flex-col gap-2" aria-labelledby="hd-vpn">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)]" id="hd-vpn">VPN detection</h2>
 
-        <div className="radio-group" role="radiogroup" aria-labelledby="hd-vpn">
+        <div className="flex flex-col gap-[6px]" role="radiogroup" aria-labelledby="hd-vpn">
           {([
             ["ip_only",  "IP only — Pepper VPN, Harp (recommended)"],
             ["port",     "Local port — Happ / Xray"],
             ["process",  "Process name"],
           ] as const).map(([val, label]) => (
-            <label className="radio-row" key={val}>
+            <label className="flex items-center gap-2 cursor-pointer text-xs min-h-6" key={val}>
               <input
                 type="radio"
                 name="vpn_mode"
                 value={val}
                 checked={settings.vpn_mode === val}
                 onChange={() => set("vpn_mode", val)}
+                className="accent-[var(--blue)] w-[14px] h-[14px] cursor-pointer"
               />
               <span>{label}</span>
             </label>
@@ -109,8 +109,8 @@ export default function Settings() {
         </div>
 
         {settings.vpn_mode === "port" && (
-          <div className="field-row">
-            <label className="field-label" htmlFor={portId}>Port</label>
+          <div className="flex items-center gap-[10px] mt-1">
+            <label className="text-xs text-[var(--text-muted)] min-w-[80px]" htmlFor={portId}>Port</label>
             <input
               id={portId}
               type="number"
@@ -124,8 +124,8 @@ export default function Settings() {
         )}
 
         {settings.vpn_mode === "process" && (
-          <div className="field-row">
-            <label className="field-label" htmlFor={processId}>Process</label>
+          <div className="flex items-center gap-[10px] mt-1">
+            <label className="text-xs text-[var(--text-muted)] min-w-[80px]" htmlFor={processId}>Process</label>
             <input
               id={processId}
               type="text"
@@ -138,10 +138,10 @@ export default function Settings() {
         )}
       </section>
 
-      <section className="settings-section" aria-labelledby="hd-interval">
-        <h2 className="section-label" id="hd-interval">Check interval</h2>
-        <div className="field-row">
-          <label className="field-label" htmlFor={intervalId}>Seconds</label>
+      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px] flex flex-col gap-2" aria-labelledby="hd-interval">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)]" id="hd-interval">Check interval</h2>
+        <div className="flex items-center gap-[10px] mt-1">
+          <label className="text-xs text-[var(--text-muted)] min-w-[80px]" htmlFor={intervalId}>Seconds</label>
           <input
             id={intervalId}
             type="number"
@@ -154,11 +154,13 @@ export default function Settings() {
             onChange={(e) => set("check_interval", Number(e.target.value))}
           />
         </div>
-        <p className="field-hint" id="interval-hint">Minimum 10 s · ~1 KB per check</p>
+        <p className="text-[11px] text-[var(--text-dim)]" id="interval-hint">Minimum 10 s · ~1 KB per check</p>
       </section>
 
       <button
-        className={`save-btn ${status === "saved" ? "saved" : ""}`}
+        className={`w-full py-[10px] min-h-9 rounded-[7px] border-none text-[13px] font-semibold cursor-pointer transition-colors duration-150 text-white hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${
+          status === "saved" ? "bg-[var(--green)]" : "bg-[var(--blue)]"
+        }`}
         onClick={save}
         disabled={status === "saving"}
         aria-busy={status === "saving"}
@@ -166,7 +168,7 @@ export default function Settings() {
         {status === "saving" ? "Saving..." : status === "saved" ? "✓ Saved" : "Save settings"}
       </button>
 
-      <p className="restart-hint" role="note">Tray changes take effect after restart.</p>
+      <p className="text-[11px] text-[var(--text-dim)] text-center" role="note">Tray changes take effect after restart.</p>
     </div>
   );
 }

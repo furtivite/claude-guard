@@ -1,22 +1,14 @@
-//! Файрвол Linux: nftables (предпочтительно) или iptables с ipset.
+//! Linux firewall via nftables (preferred) or iptables fallback.
 //!
-//! nftables: блокировка через `dnat` + verdict map по доменным именам невозможна
-//! без userspace DNS — поэтому используем nftables с периодически обновляемым set.
-//! Домены резолвятся через systemd-resolved/getaddrinfo в spawn_blocking,
-//! результат пишется в nft set. При смене IP Anthropic — перезаписывается при
-//! следующем цикле проверки (каждые N секунд).
-//!
-//! Это лучше чем единоразовый резолв: IP обновляется регулярно, а не только
-//! при старте приложения. DNS rebinding остаётся теоретическим вектором,
-//! но окно атаки ограничено интервалом проверки.
-//!
-//! Windows netsh не поддерживает FQDN — см. windows.rs.
+//! IPs are re-resolved on every `block()` call so Anthropic IP changes are picked up
+//! within one check cycle. DNS rebinding is a theoretical risk; the attack window is
+//! bounded by the check interval.
 
 use super::{Firewall, BLOCKED_DOMAINS};
 use std::collections::HashSet;
+use std::io::Write;
 use std::net::ToSocketAddrs;
 use std::process::{Command, Stdio};
-use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 const TABLE: &str = "claude_guard";
@@ -49,10 +41,6 @@ fn detect_backend() -> Backend {
     }
 }
 
-/// Резолвит BLOCKED_DOMAINS в IP через системный DNS (getaddrinfo).
-/// Выполняется в spawn_blocking — не блокирует async executor.
-/// Вызывается при каждом цикле блокировки, поэтому смена IP Anthropic
-/// подхватывается автоматически.
 fn resolve_domains() -> Vec<String> {
     let mut seen = HashSet::new();
     for domain in BLOCKED_DOMAINS {
@@ -69,7 +57,6 @@ fn resolve_domains() -> Vec<String> {
 
 impl Firewall for LinuxFirewall {
     fn block(&self) -> Result<(), String> {
-        // Резолвим каждый раз — IP мог смениться
         let ips = resolve_domains();
         if ips.is_empty() {
             return Err("DNS resolution returned no IPs — not blocking to avoid false positives".into());
@@ -98,10 +85,7 @@ impl Firewall for LinuxFirewall {
     }
 }
 
-// ── nftables ──────────────────────────────────────────────────
-
 fn block_nft(ips: &[String]) -> Result<(), String> {
-    // Атомарная замена таблицы: delete + create в одной транзакции
     let ip_list = ips.join(", ");
     let ruleset = format!(
         r#"table inet {TABLE} {{
@@ -117,7 +101,7 @@ fn block_nft(ips: &[String]) -> Result<(), String> {
 }}"#
     );
 
-    // delete игнорируем — таблицы может не быть при первом запуске
+    // delete may fail on first run when the table does not yet exist
     let _ = Command::new("sudo").args(["nft", "delete", "table", "inet", TABLE]).output();
 
     let mut child = Command::new("sudo")
@@ -142,10 +126,8 @@ fn unblock_nft() -> Result<(), String> {
     Ok(())
 }
 
-// ── iptables ──────────────────────────────────────────────────
-
 fn block_ipt(ips: &[String]) -> Result<(), String> {
-    // Сначала сбрасываем старые правила — иначе накапливаются дубли
+    // Reset first to avoid accumulating duplicate rules
     unblock_ipt()?;
 
     let _ = Command::new("sudo").args(["iptables", "-N", CHAIN]).output();

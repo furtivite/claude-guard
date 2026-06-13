@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Guard — полное удаление
+# Claude Guard — full uninstall
 set -euo pipefail
 
 echo "=== Claude Guard — Uninstall ==="
@@ -8,32 +8,32 @@ OS="$(uname -s)"
 
 case "$OS" in
   Darwin)
-    # Снять PF правила
+    # Clear PF rules
     sudo pfctl -a claude_guard -F rules 2>/dev/null && echo "✓ PF rules cleared" || true
-    # Удалить sudoers
+    # Remove sudoers entry
     sudo rm -f /etc/sudoers.d/claude-guard && echo "✓ sudoers entry removed"
-    # Удалить LaunchAgent если остался от старой версии
+    # Remove legacy LaunchAgent if present
     rm -f "$HOME/Library/LaunchAgents/sh.claudeguard.plist" 2>/dev/null || true
-    # Удалить app bundle
+    # Remove app bundle
     if [[ -d "/Applications/Claude Guard.app" ]]; then
       read -rp "Remove /Applications/Claude Guard.app? [Y/n]: " RM_APP
       RM_APP="${RM_APP:-Y}"
       [[ "$RM_APP" =~ ^[Yy]$ ]] && rm -rf "/Applications/Claude Guard.app" && echo "✓ App removed"
     fi
-    # Удалить store данные
+    # Remove app data
     rm -rf "$HOME/Library/Application Support/sh.claudeguard" 2>/dev/null || true
     ;;
 
   Linux)
-    # nftables
+    # Clear nftables rules
     sudo nft delete table inet claude_guard 2>/dev/null && echo "✓ nft table removed" || true
-    # iptables
+    # Clear iptables rules
     sudo iptables -D OUTPUT -j CLAUDE_GUARD 2>/dev/null || true
     sudo iptables -F CLAUDE_GUARD 2>/dev/null || true
     sudo iptables -X CLAUDE_GUARD 2>/dev/null && echo "✓ iptables chain removed" || true
-    # sudoers
+    # Remove sudoers entry
     sudo rm -f /etc/sudoers.d/claude-guard && echo "✓ sudoers entry removed"
-    # store
+    # Remove app data
     rm -rf "$HOME/.local/share/sh.claudeguard" 2>/dev/null || true
     ;;
 

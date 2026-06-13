@@ -7,7 +7,7 @@ Open an issue first if you're planning a non-trivial change — saves time for b
 ## Setup
 
 ```bash
-git clone https://github.com/your-username/claude-guard
+git clone https://github.com/furtivite/claude-guard
 cd claude-guard
 cp /path/to/icon.png src-tauri/icons/icon.png
 cargo tauri icon src-tauri/icons/icon.png
@@ -39,7 +39,7 @@ src-tauri/src/
 
 **Firewall changes:** test on the actual platform. A bug here blocks real traffic — treat with care. If you're adding a new firewall backend, implement the `Firewall` trait in `firewall/mod.rs` and add platform detection logic there.
 
-**IP detection:** don't add alternative IP services without a fallback strategy. The current fail-open behaviour (no block if service unreachable) is intentional.
+**IP detection:** don't add alternative IP services without a fallback strategy. The current fail-closed behaviour (existing rules preserved if service unreachable) is intentional.
 
 **UI:** keep WCAG 2.2 AA compliance — contrast ratios, focus indicators, ARIA roles. Check both light and dark themes.
 

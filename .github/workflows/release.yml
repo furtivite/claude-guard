@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"          # срабатывает на git tag v1.0.0
+      - "v*"
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest   # Apple Silicon + Intel (universal)
+          - platform: macos-latest   # Apple Silicon + Intel (universal binary)
             args: --target universal-apple-darwin
 
           - platform: ubuntu-22.04
@@ -35,7 +35,7 @@ jobs:
       - name: Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Universal binary на macOS требует оба таргета
+          # Universal binary on macOS requires both targets
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
@@ -43,7 +43,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # Linux: системные зависимости Tauri + AppIndicator для трея
+      # Linux: Tauri system dependencies + AppIndicator for tray
       - name: Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -58,17 +58,15 @@ jobs:
       - name: npm install
         run: npm install
 
-      # Генерируем иконки всех размеров из исходного icon.png
+      # Generate all icon sizes from the committed icon.png source
       - name: Generate icons
-        run: cargo tauri icon src-tauri/icons/icon.png
-        env:
-          CARGO_TERM_COLOR: always
+        run: npx tauri icon src-tauri/icons/icon.png
 
       - name: Build & bundle
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS подпись — опционально, см. README
+          # macOS code signing — optional, see README
           # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}

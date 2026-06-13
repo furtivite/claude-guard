@@ -1,11 +1,8 @@
-//! Файрвол Windows через Windows Filtering Platform (netsh advfirewall).
+#![allow(dead_code)]
+//! Windows firewall via netsh advfirewall.
 //!
-//! Ограничение: netsh не поддерживает блокировку по FQDN — только по IP.
-//! Это означает что при смене IP Anthropic правила устареют до следующего цикла.
-//! Интервал проверки (default 30s) ограничивает окно уязвимости.
-//!
-//! При каждом вызове block() правила пересоздаются с актуальными IP —
-//! это защищает от накопления устаревших записей.
+//! netsh does not support FQDN rules, so IPs are resolved on every `block()` call.
+//! Stale rules from IP changes are overwritten on the next check cycle (default 30 s).
 
 use super::{Firewall, BLOCKED_DOMAINS};
 use std::collections::HashSet;
@@ -38,8 +35,7 @@ impl WindowsFirewall {
     }
 
     fn delete_rules(&self) {
-        // Удаляем все правила с нашим префиксом
-        // netsh не поддерживает wildcard — удаляем по имени паттерна через PowerShell
+        // netsh has no wildcard delete — use PowerShell to match by prefix
         let _ = Command::new("powershell")
             .args([
                 "-NoProfile", "-NonInteractive", "-Command",
@@ -72,7 +68,7 @@ impl Firewall for WindowsFirewall {
             return Err("DNS resolution returned no IPs".into());
         }
 
-        // Сначала удаляем старые — иначе накапливаются устаревшие правила
+        // Reset first to avoid accumulating stale rules
         self.delete_rules();
 
         for (i, ip) in ips.iter().enumerate() {

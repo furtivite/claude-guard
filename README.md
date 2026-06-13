@@ -1,6 +1,6 @@
 # Claude Guard
 
-[![Release](https://img.shields.io/github/v/release/your-username/claude-guard?style=flat-square&color=4da6ff)](../../releases/latest)
+[![Release](https://img.shields.io/github/v/release/furtivite/claude-guard?style=flat-square&color=4da6ff)](../../releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 Blocks traffic to `api.anthropic.com` and `claude.ai` when your IP is Russian — regardless of VPN state.
@@ -38,16 +38,16 @@ Go to [Releases](../../releases/latest) and download the file for your platform.
 2. First launch: right-click → **Open** (Gatekeeper workaround for unsigned app)
 3. Run once to set firewall permissions:
 ```bash
-# Скачай и проверь скрипт перед запуском — не запускай curl | bash вслепую
-curl -fsSL https://raw.githubusercontent.com/your-username/claude-guard/main/install.sh -o install.sh
-cat install.sh  # убедись что содержимое ожидаемое
+# Download and inspect before running — never pipe curl directly to bash
+curl -fsSL https://raw.githubusercontent.com/furtivite/claude-guard/main/install.sh -o install.sh
+cat install.sh  # verify contents before running
 bash install.sh
 ```
 
 ### Linux
 ```bash
-# Скачай install.sh и проверь содержимое перед запуском
-curl -fsSL https://raw.githubusercontent.com/your-username/claude-guard/main/install.sh -o install.sh
+# Download and verify install.sh before running
+curl -fsSL https://raw.githubusercontent.com/furtivite/claude-guard/main/install.sh -o install.sh
 cat install.sh
 
 # deb
@@ -70,7 +70,7 @@ Only needed if you want to modify the code.
 # Prerequisites: Rust, Node.js 18+, Tauri CLI v2
 cargo install tauri-cli --version "^2"
 
-git clone https://github.com/your-username/claude-guard
+git clone https://github.com/furtivite/claude-guard
 cd claude-guard
 cp /path/to/icon.png src-tauri/icons/icon.png
 cargo tauri icon src-tauri/icons/icon.png
@@ -134,6 +134,6 @@ Do not use `RUST_LOG=debug` on shared machines — IP addresses appear in output
 
 ## Fail-safe behavior
 
-- If `ipinfo.io` is unreachable → **does NOT block** (fail open)
+- If `ipinfo.io` is unreachable → **existing firewall rules are preserved** (fail-closed)
 - IP result is cached 60 seconds — no excess traffic
 - Firewall anchor is isolated — system rules are never touched

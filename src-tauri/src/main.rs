@@ -81,7 +81,6 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
         })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "toggle" => {
-                // Читаем текущее состояние и инвертируем
                 let cfg = Config::load(app);
                 let new_enabled = !cfg.enabled;
                 let app = app.clone();
@@ -100,15 +99,14 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Обновляет label и tooltip трея после смены enabled.
-/// Вызывается и из трея, и из команды cmd_toggle_enabled (UI кнопка).
+/// Rebuilds the tray menu and tooltip to reflect the current `enabled` state.
+// Tauri v2 requires rebuilding the full menu to update a single item's label.
 pub fn update_tray_menu(app: &tauri::AppHandle, enabled: bool) {
     let Some(tray) = app.tray_by_id("main") else { return };
 
     let label = if enabled { "Disable protection" } else { "Enable protection" };
     let tooltip = if enabled { "Claude Guard — Active" } else { "Claude Guard — Disabled" };
 
-    // Tauri v2: пересобираем меню с новым label
     if let (Ok(toggle), Ok(show), Ok(quit)) = (
         MenuItem::with_id(app, "toggle", label,         true, None::<&str>),
         MenuItem::with_id(app, "show",   "Open Status", true, None::<&str>),
@@ -130,8 +128,6 @@ fn toggle_window(app: &tauri::AppHandle) {
         let _ = window.set_focus();
     }
 }
-
-// ── Commands ──────────────────────────────────────────────────
 
 #[tauri::command]
 async fn cmd_get_status(
@@ -171,8 +167,6 @@ async fn cmd_force_check(
     Ok(())
 }
 
-/// Toggle из UI (кнопка в Settings или StatusCard).
-/// Синхронизирует store, трей и guard-цикл.
 #[tauri::command]
 async fn cmd_toggle_enabled(
     app: tauri::AppHandle,
@@ -182,8 +176,6 @@ async fn cmd_toggle_enabled(
     let state = state.inner().clone();
     do_toggle_enabled_with_state(&app, &state, enabled).await
 }
-
-// ── Внутренние хелперы ────────────────────────────────────────
 
 async fn do_toggle_enabled(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
     let state = app
@@ -199,15 +191,12 @@ async fn do_toggle_enabled_with_state(
     state: &SharedState,
     enabled: bool,
 ) -> Result<(), String> {
-    // 1. Сохраняем в store
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     store.set("enabled", serde_json::Value::Bool(enabled));
     store.save().map_err(|e| e.to_string())?;
 
-    // 2. Обновляем трей немедленно — не ждём следующего цикла
     update_tray_menu(app, enabled);
 
-    // 3. Запускаем проверку немедленно чтобы guard применил новое состояние
     let app_clone = app.clone();
     let state_clone = state.clone();
     tokio::spawn(async move {

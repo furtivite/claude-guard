@@ -65,23 +65,31 @@ export default function App() {
   const blocked = status?.blocked ?? false;
 
   return (
-    <div className={`app ${blocked ? "state-blocked" : "state-safe"}`}>
-      {/* Объявления для скринридера */}
+    <div className={`flex flex-col h-screen w-full bg-[var(--bg)] transition-colors duration-300 ${blocked ? "state-blocked" : "state-safe"}`}>
       <div role="status" aria-live="assertive" aria-atomic="true" className="sr-only">
         {announcement}
       </div>
 
-      <header className="app-header" role="banner">
-        <div className="header-left">
+      <header
+        className="flex items-center justify-between pt-[14px] pb-3 px-4 border-b border-[var(--border)] bg-[var(--bg-card)] [-webkit-app-region:drag]"
+        role="banner"
+      >
+        <div className="flex items-center gap-[9px]">
           <div
-            className={`status-dot ${blocked ? "dot-blocked" : status ? "dot-safe" : "dot-unknown"}`}
+            className={`status-dot w-2 h-2 rounded-full shrink-0 ${
+              blocked
+                ? "bg-[var(--red)] shadow-[0_0_6px_var(--red)] animate-pulse-red"
+                : status
+                ? "bg-[var(--green)] shadow-[0_0_6px_var(--green)]"
+                : "bg-[var(--text-dim)]"
+            }`}
             role="img"
             aria-label={blocked ? "Blocked" : status ? "Protected" : "Unknown"}
           />
-          <span className="app-title">Claude Guard</span>
+          <span className="text-[13px] font-semibold tracking-[0.3px]">Claude Guard</span>
         </div>
 
-        <nav className="header-nav" role="tablist" aria-label="Main navigation">
+        <nav className="flex gap-1 [-webkit-app-region:no-drag]" role="tablist" aria-label="Main navigation">
           {VIEWS.map((v) => (
             <button
               key={v}
@@ -89,7 +97,11 @@ export default function App() {
               id={`tab-${v}`}
               aria-selected={view === v}
               aria-controls={`panel-${v}`}
-              className={`nav-btn ${view === v ? "active" : ""}`}
+              className={`px-3 py-1 rounded-md border text-xs cursor-pointer transition-[background,color] duration-150 min-h-7 ${
+                view === v
+                  ? "bg-[var(--blue-dim)] text-[var(--blue)] font-medium border-[var(--blue-dim)]"
+                  : "border-transparent text-[var(--text-muted)] bg-transparent hover:bg-[var(--bg-section)] hover:text-[var(--text)]"
+              }`}
               tabIndex={view === v ? 0 : -1}
               onClick={() => setView(v)}
               onKeyDown={(e) => handleNavKey(e, v)}
@@ -100,7 +112,9 @@ export default function App() {
         </nav>
       </header>
 
-      <main className="app-content">
+      <main
+        className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-thumb]:rounded-sm"
+      >
         <div id="panel-status" role="tabpanel" aria-labelledby="tab-status" hidden={view !== "status"}>
           <StatusCard status={status} checking={checking} onCheck={handleCheck} onToggle={handleToggle} />
         </div>
@@ -109,15 +123,15 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="app-footer" role="contentinfo">
+      <footer className="px-4 py-2 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg-card)]" role="contentinfo">
         {status?.last_check && (
-          <span className="last-check">
+          <span className="text-[var(--text-dim)] text-[11px]">
             <span className="sr-only">Last check: </span>
             {status.last_check}
           </span>
         )}
         {status?.error && (
-          <span className="error-hint" role="alert" title={status.error}>
+          <span className="text-[var(--yellow)] text-[11px] cursor-help" role="alert" title={status.error}>
             ⚠ Check error
           </span>
         )}

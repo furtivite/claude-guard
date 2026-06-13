@@ -1,16 +1,12 @@
-//! Определение IP и страны через ipinfo.io.
+//! IP geolocation via ipinfo.io with a 60-second cache.
 //!
-//! Результат кэшируется на CACHE_TTL. При ошибке возвращает Err —
-//! guard интерпретирует это как fail-open (не блокировать).
+//! MITM protection:
+//! - `no_proxy()` bypasses the system proxy so the real exit IP is checked.
+//! - `rustls-tls` with only Mozilla WebPKI roots — the system certificate store is
+//!   excluded, so corporate or antivirus CAs cannot issue a trusted cert for ipinfo.io.
 //!
-//! Защита от MITM:
-//! - `no_proxy()` — запрос идёт мимо системного прокси
-//! - `rustls-tls` + отключён system certificate store — используем только
-//!   Mozilla WebPKI roots (webpki-roots), корпоративные/антивирусные CA
-//!   не могут выдать доверенный сертификат для ipinfo.io
-//!
-//! Полный SPKI pinning потребовал бы кастомного TLS verifier на уровне rustls;
-//! отключение system store даёт 95% той же защиты при несравнимо меньшей сложности.
+//! Full SPKI pinning would require a custom rustls verifier; excluding the system store
+//! provides ~95% of the same protection at a fraction of the complexity.
 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
@@ -32,7 +28,7 @@ pub struct IpInfo {
 }
 
 impl IpInfo {
-    // ipinfo.io не возвращает полное название страны на бесплатном плане
+    // ipinfo.io free tier does not return a full country name
     fn country_name(code: &str) -> &'static str {
         match code {
             "AE" => "UAE",           "AT" => "Austria",
@@ -89,13 +85,7 @@ pub async fn get() -> Result<IpInfo, String> {
 async fn fetch() -> Result<IpInfo, String> {
     let client = reqwest::Client::builder()
         .timeout(REQUEST_TIMEOUT)
-        // Реальный выходной IP, не через прокси
         .no_proxy()
-        // Только Mozilla WebPKI roots — корпоративные/антивирусные CA игнорируются.
-        // Это предотвращает MITM через подменный доверенный CA в system store.
-        // Только Mozilla WebPKI roots — system CA store не используется.
-        // reqwest 0.12 + rustls: tls_built_in_root_certs(true) включает webpki-roots,
-        // встроенные нативные корни при этом не добавляются если явно не запросить.
         .tls_built_in_root_certs(true)
         .build()
         .map_err(|e| format!("HTTP client: {e}"))?;

@@ -1,12 +1,9 @@
-//! Основной цикл защиты.
+//! Core protection loop.
 //!
-//! Поведение при ошибках (fail-closed):
-//! - Старт: блокируем сразу, снимаем только после успешной проверки
-//! - ipinfo.io недоступен: оставляем текущие правила без изменений
-//! - DNS не резолвится (linux/windows): оставляем текущие правила
-//!
-//! Это контрастирует с fail-open (не блокировать при ошибке) —
-//! недоступность сервиса проверки не означает что IP безопасен.
+//! Fail-closed error policy:
+//! - On startup: block immediately, unblock only after a successful IP check.
+//! - If ipinfo.io is unreachable: preserve existing firewall rules unchanged.
+//! - If DNS resolution fails (Linux/Windows): preserve existing firewall rules unchanged.
 
 use crate::config::Config;
 use crate::firewall::{self, Firewall};
@@ -15,22 +12,17 @@ use crate::vpn_detector::{VpnDetector, VpnMode};
 use crate::SharedState;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tauri::Manager;
+use tauri::Emitter;
 use tauri_plugin_notification::NotificationExt;
 
-/// Причина блокировки — отображается в UI.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlockReason {
     #[default]
     None,
-    /// IP принадлежит России
     RussianIp,
-    /// VPN не активен (режим port/process)
     VpnInactive,
-    /// Проверка IP не прошла — правила сохранены из предыдущего состояния
     CheckFailed,
-    /// Приложение только запустилось, первая проверка ещё не завершена
     Initializing,
 }
 
@@ -43,15 +35,12 @@ pub struct Status {
     pub vpn_active: bool,
     pub guard_enabled: bool,
     pub last_check: Option<String>,
-    /// Последняя ошибка — только для отображения, не влияет на логику блокировки
     pub error: Option<String>,
 }
 
 impl Default for Status {
     fn default() -> Self {
         Self {
-            // Нейтральное состояние до первого цикла.
-            // run_loop выставит реальное состояние сразу после старта.
             blocked: false,
             block_reason: BlockReason::Initializing,
             ip_info: None,
@@ -72,22 +61,15 @@ pub struct GuardState {
 impl GuardState {
     pub fn new() -> Self {
         Self {
-            // Стартовый статус определяется Config::enabled.
-            // Если enabled=false — статус Disabled, файрвол не трогается.
-            // Если enabled=true — первый check() заблокирует до успешной проверки IP.
             status: Status::default(),
             firewall: firewall::platform(),
         }
     }
 }
 
-// ── Публичный API ─────────────────────────────────────────────
-
 pub async fn run_loop(app: tauri::AppHandle, state: SharedState) {
     let cfg = Config::load(&app);
 
-    // Если guard включён — блокируем сразу до первой успешной проверки IP.
-    // Если выключен — стартуем открытым, пользователь включит вручную.
     if cfg.enabled {
         let mut s = state.lock().await;
         s.status.guard_enabled = true;
@@ -117,8 +99,6 @@ pub async fn force_check(app: tauri::AppHandle, state: SharedState) {
     check(&app, &state).await;
 }
 
-// ── Внутренняя логика ─────────────────────────────────────────
-
 async fn check(app: &tauri::AppHandle, state: &SharedState) {
     let cfg = Config::load(app);
 
@@ -130,6 +110,7 @@ async fn check(app: &tauri::AppHandle, state: &SharedState) {
         s.status.guard_enabled = false;
         s.status.blocked = false;
         s.status.block_reason = BlockReason::None;
+        s.status.error = None;
         emit(app, &s.status);
         return;
     }
@@ -138,7 +119,6 @@ async fn check(app: &tauri::AppHandle, state: &SharedState) {
     let vpn_active = detector.is_active();
     let vpn_iface = VpnDetector::detect_interface();
 
-    // Режимы port/process: VPN не активен → блокируем без IP-запроса
     if cfg.vpn_mode != VpnMode::IpOnly && !vpn_active {
         let mut s = state.lock().await;
         transition(app, &mut s, None, vpn_iface, false, true, BlockReason::VpnInactive).await;
@@ -152,16 +132,13 @@ async fn check(app: &tauri::AppHandle, state: &SharedState) {
             let mut s = state.lock().await;
             transition(app, &mut s, Some(info), vpn_iface, vpn_active, should_block, reason).await;
         }
-
-        // Fail-closed: оставляем текущие правила, обновляем только error в статусе.
-        // Не меняем blocked и не вызываем unblock — состояние файрвола не трогаем.
+        // Fail-closed: preserve current firewall state, update error in status only.
         Err(e) => {
-            log::warn!("IP check failed (fail-closed, rules unchanged): {e}");
+            log::warn!("IP check failed (rules unchanged): {e}");
             let mut s = state.lock().await;
             let was_blocked = s.firewall.is_blocked();
             s.status.error = Some(e);
             s.status.last_check = Some(now());
-            // Если были заблокированы — явно отражаем причину в статусе
             if was_blocked {
                 s.status.block_reason = BlockReason::CheckFailed;
             }

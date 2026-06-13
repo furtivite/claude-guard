@@ -1,28 +1,23 @@
-//! Абстракция файрвола.
+//! Firewall abstraction.
 //!
-//! Каждая платформа реализует трейт `Firewall`.
-//! Блокировка идёт по доменным именам (не IP) — это защищает от DNS rebinding:
-//! даже если Anthropic сменит IP или DNS будет скомпрометирован,
-//! правила продолжат работать корректно.
+//! Each platform implements the `Firewall` trait. Rules target domain names so they
+//! survive IP changes — platforms that support FQDN rules (PF, nftables) are preferred
+//! over IP-based fallbacks.
 //!
-//! Добавить платформу: создай модуль, реализуй трейт, добавь ветку в `platform()`.
+//! To add a platform: create a module, implement `Firewall`, add a branch to `platform()`.
 
+#[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "macos")]
 pub mod macos;
+#[cfg(windows)]
 pub mod windows;
 
-/// Домены блокируются на уровне файрвола напрямую — без DNS-резолва в приложении.
-/// PF и nftables умеют работать с FQDN через таблицы/sets с периодическим резолвом.
-/// Windows netsh не поддерживает FQDN — там оставляем IP-резолв как fallback,
-/// но документируем ограничение.
 pub const BLOCKED_DOMAINS: &[&str] = &["api.anthropic.com", "claude.ai"];
 
 pub trait Firewall: Send + Sync {
-    /// Заблокировать исходящий трафик к доменам из BLOCKED_DOMAINS.
     fn block(&self) -> Result<(), String>;
-    /// Снять блокировку.
     fn unblock(&self) -> Result<(), String>;
-    /// Текущее состояние.
     fn is_blocked(&self) -> bool;
 }
 

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { GuardStatus, BlockReason } from "../types";
 
 interface Props {
@@ -14,7 +13,6 @@ function countryCodeToEmoji(code: string): string {
     .join("");
 }
 
-// Человекочитаемое описание причины блокировки
 function blockReasonLabel(reason: BlockReason): string {
   switch (reason) {
     case "russian_ip":   return "Russian IP detected";
@@ -33,8 +31,8 @@ function blockReasonAriaLabel(reason: BlockReason, blocked: boolean): string {
 export default function StatusCard({ status, checking, onCheck, onToggle }: Props) {
   if (!status) {
     return (
-      <div className="status-loading" role="status" aria-label="Loading">
-        <div className="spinner" aria-hidden="true" />
+      <div className="flex flex-col items-center justify-center gap-3 h-[200px] text-[var(--text-muted)]" role="status" aria-label="Loading">
+        <div className="w-[22px] h-[22px] border-2 border-[var(--border)] border-t-[var(--blue)] rounded-full animate-spin" aria-hidden="true" />
         <span>Initializing...</span>
       </div>
     );
@@ -42,89 +40,97 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
 
   const { blocked, block_reason, ip_info, vpn_interface, vpn_active, guard_enabled } = status;
 
-  // check_failed — особый случай: заблокировано но не из-за RU IP
   const isUncertain = block_reason === "check_failed" || block_reason === "initializing";
 
   return (
-    <div className="status-card">
-      <div
-        className={`block-indicator ${blocked ? (isUncertain ? "uncertain" : "blocked") : "safe"}`}
-        role="region"
+    <div className="flex flex-col gap-3">
+      <section
+        className={`block-indicator flex items-center gap-[14px] p-4 rounded-xl border transition-[background,border-color] duration-300 ${
+          blocked
+            ? isUncertain
+              ? "bg-[var(--yellow-dim)] border-[var(--yellow-border)]"
+              : "bg-[var(--red-dim)] border-[var(--red-border)]"
+            : "bg-[var(--green-dim)] border-[var(--green-border)]"
+        }`}
         aria-label={
           !guard_enabled
             ? "Guard disabled — enable in Settings"
             : blockReasonAriaLabel(block_reason, blocked)
         }
       >
-        <span className="indicator-icon" aria-hidden="true">
+        <span className="text-[28px] leading-none" aria-hidden="true">
           {!guard_enabled ? "⚪" : blocked ? (isUncertain ? "🟡" : "🔴") : "🟢"}
         </span>
         <div>
-          <div className="indicator-title">
+          <p className="text-[15px] font-semibold">
             {!guard_enabled
               ? "Guard disabled"
               : blocked
               ? "Anthropic BLOCKED"
               : "Anthropic allowed"}
-          </div>
-          <div className="indicator-sub">
+          </p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {!guard_enabled ? "Enable in Settings" : blockReasonLabel(block_reason)}
-          </div>
+          </p>
         </div>
-      </div>
+      </section>
 
-      <section className="info-section" aria-label="IP information">
-        <h2 className="section-label">Your IP</h2>
+      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]" aria-label="IP information">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">Your IP</h2>
         <dl>
-          <div className="info-row">
-            <dt className="info-key">Address</dt>
-            <dd className="info-val mono">{ip_info?.ip ?? "—"}</dd>
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">Address</dt>
+            <dd className="text-xs text-right font-mono text-[11px]">{ip_info?.ip ?? "—"}</dd>
           </div>
-          <div className="info-row">
-            <dt className="info-key">Country</dt>
-            <dd className="info-val country-val">
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">Country</dt>
+            <dd className="text-xs flex items-center gap-[6px]">
               {ip_info?.country_code && (
-                <span className="flag-emoji" aria-hidden="true">
+                <span className="text-[18px] leading-none" aria-hidden="true">
                   {countryCodeToEmoji(ip_info.country_code)}
                 </span>
               )}
               {ip_info?.country ?? "—"}
             </dd>
           </div>
-          <div className="info-row">
-            <dt className="info-key">City</dt>
-            <dd className="info-val">
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">City</dt>
+            <dd className="text-xs text-right">
               {ip_info ? [ip_info.city, ip_info.region].filter(Boolean).join(", ") : "—"}
             </dd>
           </div>
-          <div className="info-row">
-            <dt className="info-key">Provider</dt>
-            <dd className="info-val mono small" title={ip_info?.org}>{ip_info?.org ?? "—"}</dd>
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">Provider</dt>
+            <dd className="text-[10px] text-right max-w-[220px] truncate font-mono" title={ip_info?.org}>{ip_info?.org ?? "—"}</dd>
           </div>
         </dl>
       </section>
 
-      <section className="info-section" aria-label="VPN status">
-        <h2 className="section-label">VPN</h2>
+      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]" aria-label="VPN status">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">VPN</h2>
         <dl>
-          <div className="info-row">
-            <dt className="info-key">Interface</dt>
-            <dd className={`info-val ${vpn_interface ? "vpn-active" : "vpn-none"}`}>
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">Interface</dt>
+            <dd className={`text-xs text-right ${vpn_interface ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}>
               {vpn_interface ?? "Not detected"}
             </dd>
           </div>
-          <div className="info-row">
-            <dt className="info-key">State</dt>
-            <dd className={`info-val ${vpn_active ? "vpn-active" : "vpn-none"}`}>
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">State</dt>
+            <dd className={`text-xs text-right ${vpn_active ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}>
               {vpn_active ? "Active" : "Inactive"}
             </dd>
           </div>
         </dl>
       </section>
 
-      <div className="action-row">
+      <div className="flex gap-2">
         <button
-          className={`toggle-guard-btn ${guard_enabled ? "active" : "inactive"}`}
+          className={`flex-1 py-[10px] min-h-9 rounded-[7px] border text-[13px] font-semibold cursor-pointer transition-[background,border-color,color] duration-150 ${
+            guard_enabled
+              ? "bg-transparent border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--red)] hover:text-[var(--red)]"
+              : "bg-[var(--blue)] border-[var(--blue)] text-white hover:brightness-110"
+          }`}
           onClick={() => onToggle(!guard_enabled)}
           aria-label={guard_enabled ? "Disable protection" : "Enable protection"}
           aria-pressed={guard_enabled}
@@ -133,14 +139,18 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
         </button>
 
         <button
-          className={`check-btn ${checking ? "checking" : ""}`}
+          className={`flex-1 py-[10px] min-h-9 rounded-[7px] border text-[13px] font-medium cursor-pointer flex items-center justify-center gap-2 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${
+            checking
+              ? "border-[var(--border)] text-[var(--text-muted)]"
+              : "border-[var(--blue-dim)] bg-transparent text-[var(--blue)] hover:bg-[var(--blue-dim)]"
+          }`}
           onClick={onCheck}
           disabled={checking || !guard_enabled}
           aria-label={checking ? "Checking IP, please wait" : "Check IP now"}
           aria-busy={checking}
         >
           {checking
-            ? <><span className="spinner-sm" aria-hidden="true" /> Checking...</>
+            ? <><span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" /> Checking...</>
             : "Check now"}
         </button>
       </div>

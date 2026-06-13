@@ -1,6 +1,4 @@
-//! Настройки приложения — единая точка чтения из store.
-//!
-//! Все дефолты живут здесь, guard.rs и main.rs не знают ключей store.
+//! Application settings — single source of truth for store keys and defaults.
 
 use crate::vpn_detector::VpnMode;
 use tauri::AppHandle;
@@ -67,7 +65,6 @@ impl Config {
         }
     }
 
-    /// Сериализует конфиг в JSON для команды get_settings.
     pub fn to_json(&self) -> serde_json::Value {
         serde_json::json!({
             "enabled": self.enabled,

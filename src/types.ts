@@ -1,6 +1,3 @@
-// Единственный источник типов для всего UI.
-// Структуры зеркалят Rust-сериализацию из guard.rs и config.rs.
-
 export interface IpInfo {
   ip: string;
   country: string;
@@ -11,13 +8,12 @@ export interface IpInfo {
   is_russian: boolean;
 }
 
-// Зеркало BlockReason из guard.rs
 export type BlockReason =
-  | "none"           // не заблокировано
-  | "russian_ip"     // IP принадлежит России
-  | "vpn_inactive"   // VPN не активен (режим port/process)
-  | "check_failed"   // ipinfo.io недоступен, правила сохранены
-  | "initializing";  // первый старт, проверка ещё не завершена
+  | "none"
+  | "russian_ip"
+  | "vpn_inactive"
+  | "check_failed"
+  | "initializing";
 
 export interface GuardStatus {
   blocked: boolean;
