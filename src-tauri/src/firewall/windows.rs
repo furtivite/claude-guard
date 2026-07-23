@@ -74,7 +74,8 @@ impl Firewall for WindowsFirewall {
         for (i, ip) in ips.iter().enumerate() {
             let rule_name = format!("{RULE_PREFIX}{i}");
             self.netsh(&[
-                "add", "rule",
+                "add",
+                "rule",
                 &format!("name={rule_name}"),
                 "dir=out",
                 "action=block",

@@ -15,11 +15,16 @@ function countryCodeToEmoji(code: string): string {
 
 function blockReasonLabel(reason: BlockReason): string {
   switch (reason) {
-    case "russian_ip":   return "Russian IP detected";
-    case "vpn_inactive": return "VPN not active";
-    case "check_failed": return "IP check unavailable — rules preserved";
-    case "initializing": return "Starting up, checking IP…";
-    case "none":         return "Non-Russian IP confirmed";
+    case "russian_ip":
+      return "Russian IP detected";
+    case "vpn_inactive":
+      return "VPN not active";
+    case "check_failed":
+      return "IP check unavailable — rules preserved";
+    case "initializing":
+      return "Starting up, checking IP…";
+    case "none":
+      return "Non-Russian IP confirmed";
   }
 }
 
@@ -31,8 +36,15 @@ function blockReasonAriaLabel(reason: BlockReason, blocked: boolean): string {
 export default function StatusCard({ status, checking, onCheck, onToggle }: Props) {
   if (!status) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 h-[200px] text-[var(--text-muted)]" role="status" aria-label="Loading">
-        <div className="w-[22px] h-[22px] border-2 border-[var(--border)] border-t-[var(--blue)] rounded-full animate-spin" aria-hidden="true" />
+      <div
+        className="flex flex-col items-center justify-center gap-3 h-[200px] text-[var(--text-muted)]"
+        role="status"
+        aria-label="Loading"
+      >
+        <div
+          className="w-[22px] h-[22px] border-2 border-[var(--border)] border-t-[var(--blue)] rounded-full animate-spin"
+          aria-hidden="true"
+        />
         <span>Initializing...</span>
       </div>
     );
@@ -66,8 +78,8 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
             {!guard_enabled
               ? "Guard disabled"
               : blocked
-              ? "Anthropic BLOCKED"
-              : "Anthropic allowed"}
+                ? "Anthropic BLOCKED"
+                : "Anthropic allowed"}
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {!guard_enabled ? "Enable in Settings" : blockReasonLabel(block_reason)}
@@ -75,8 +87,13 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
         </div>
       </section>
 
-      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]" aria-label="IP information">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">Your IP</h2>
+      <section
+        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]"
+        aria-label="IP information"
+      >
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">
+          Your IP
+        </h2>
         <dl>
           <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
             <dt className="text-[var(--text-muted)] text-xs">Address</dt>
@@ -101,23 +118,37 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
           </div>
           <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
             <dt className="text-[var(--text-muted)] text-xs">Provider</dt>
-            <dd className="text-[10px] text-right max-w-[220px] truncate font-mono" title={ip_info?.org}>{ip_info?.org ?? "—"}</dd>
+            <dd
+              className="text-[10px] text-right max-w-[220px] truncate font-mono"
+              title={ip_info?.org}
+            >
+              {ip_info?.org ?? "—"}
+            </dd>
           </div>
         </dl>
       </section>
 
-      <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]" aria-label="VPN status">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">VPN</h2>
+      <section
+        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl py-3 px-[14px]"
+        aria-label="VPN status"
+      >
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--text-dim)] mb-[10px]">
+          VPN
+        </h2>
         <dl>
           <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
             <dt className="text-[var(--text-muted)] text-xs">Interface</dt>
-            <dd className={`text-xs text-right ${vpn_interface ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}>
+            <dd
+              className={`text-xs text-right ${vpn_interface ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}
+            >
               {vpn_interface ?? "Not detected"}
             </dd>
           </div>
           <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
             <dt className="text-[var(--text-muted)] text-xs">State</dt>
-            <dd className={`text-xs text-right ${vpn_active ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}>
+            <dd
+              className={`text-xs text-right ${vpn_active ? "text-[var(--green)]" : "text-[var(--text-dim)]"}`}
+            >
               {vpn_active ? "Active" : "Inactive"}
             </dd>
           </div>
@@ -149,9 +180,17 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
           aria-label={checking ? "Checking IP, please wait" : "Check IP now"}
           aria-busy={checking}
         >
-          {checking
-            ? <><span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" /> Checking...</>
-            : "Check now"}
+          {checking ? (
+            <>
+              <span
+                className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"
+                aria-hidden="true"
+              />{" "}
+              Checking...
+            </>
+          ) : (
+            "Check now"
+          )}
         </button>
       </div>
     </div>

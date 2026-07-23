@@ -24,18 +24,20 @@ export default function App() {
       setStatus(payload);
       if (prevBlocked.current !== null && prevBlocked.current !== payload.blocked) {
         const reasons: Record<string, string> = {
-          russian_ip:   "Warning: Russian IP detected. Anthropic traffic blocked.",
+          russian_ip: "Warning: Russian IP detected. Anthropic traffic blocked.",
           vpn_inactive: "Warning: VPN not active. Anthropic traffic blocked.",
           check_failed: "Warning: IP check failed. Existing firewall rules preserved.",
           initializing: "Claude Guard starting. Traffic blocked until IP verified.",
-          none:         "Anthropic traffic restored. Non-Russian IP confirmed.",
+          none: "Anthropic traffic restored. Non-Russian IP confirmed.",
         };
         setAnnouncement(reasons[payload.block_reason] ?? "");
       }
       prevBlocked.current = payload.blocked;
     });
 
-    return () => { unlisten.then((f) => f()); };
+    return () => {
+      unlisten.then((f) => f());
+    };
   }, []);
 
   const handleCheck = async () => {
@@ -65,7 +67,9 @@ export default function App() {
   const blocked = status?.blocked ?? false;
 
   return (
-    <div className={`flex flex-col h-screen w-full bg-[var(--bg)] transition-colors duration-300 ${blocked ? "state-blocked" : "state-safe"}`}>
+    <div
+      className={`flex flex-col h-screen w-full bg-[var(--bg)] transition-colors duration-300 ${blocked ? "state-blocked" : "state-safe"}`}
+    >
       <div role="status" aria-live="assertive" aria-atomic="true" className="sr-only">
         {announcement}
       </div>
@@ -80,8 +84,8 @@ export default function App() {
               blocked
                 ? "bg-[var(--red)] shadow-[0_0_6px_var(--red)] animate-pulse-red"
                 : status
-                ? "bg-[var(--green)] shadow-[0_0_6px_var(--green)]"
-                : "bg-[var(--text-dim)]"
+                  ? "bg-[var(--green)] shadow-[0_0_6px_var(--green)]"
+                  : "bg-[var(--text-dim)]"
             }`}
             role="img"
             aria-label={blocked ? "Blocked" : status ? "Protected" : "Unknown"}
@@ -89,7 +93,11 @@ export default function App() {
           <span className="text-[13px] font-semibold tracking-[0.3px]">Claude Guard</span>
         </div>
 
-        <nav className="flex gap-1 [-webkit-app-region:no-drag]" role="tablist" aria-label="Main navigation">
+        <nav
+          className="flex gap-1 [-webkit-app-region:no-drag]"
+          role="tablist"
+          aria-label="Main navigation"
+        >
           {VIEWS.map((v) => (
             <button
               key={v}
@@ -112,18 +120,34 @@ export default function App() {
         </nav>
       </header>
 
-      <main
-        className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-thumb]:rounded-sm"
-      >
-        <div id="panel-status" role="tabpanel" aria-labelledby="tab-status" hidden={view !== "status"}>
-          <StatusCard status={status} checking={checking} onCheck={handleCheck} onToggle={handleToggle} />
+      <main className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-[var(--border)] [&::-webkit-scrollbar-thumb]:rounded-sm">
+        <div
+          id="panel-status"
+          role="tabpanel"
+          aria-labelledby="tab-status"
+          hidden={view !== "status"}
+        >
+          <StatusCard
+            status={status}
+            checking={checking}
+            onCheck={handleCheck}
+            onToggle={handleToggle}
+          />
         </div>
-        <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden={view !== "settings"}>
+        <div
+          id="panel-settings"
+          role="tabpanel"
+          aria-labelledby="tab-settings"
+          hidden={view !== "settings"}
+        >
           <Settings />
         </div>
       </main>
 
-      <footer className="px-4 py-2 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg-card)]" role="contentinfo">
+      <footer
+        className="px-4 py-2 border-t border-[var(--border)] flex justify-between items-center bg-[var(--bg-card)]"
+        role="contentinfo"
+      >
         {status?.last_check && (
           <span className="text-[var(--text-dim)] text-[11px]">
             <span className="sr-only">Last check: </span>
@@ -131,7 +155,11 @@ export default function App() {
           </span>
         )}
         {status?.error && (
-          <span className="text-[var(--yellow)] text-[11px] cursor-help" role="alert" title={status.error}>
+          <span
+            className="text-[var(--yellow)] text-[11px] cursor-help"
+            role="alert"
+            title={status.error}
+          >
             ⚠ Check error
           </span>
         )}

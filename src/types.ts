@@ -8,12 +8,7 @@ export interface IpInfo {
   is_russian: boolean;
 }
 
-export type BlockReason =
-  | "none"
-  | "russian_ip"
-  | "vpn_inactive"
-  | "check_failed"
-  | "initializing";
+export type BlockReason = "none" | "russian_ip" | "vpn_inactive" | "check_failed" | "initializing";
 
 export interface GuardStatus {
   blocked: boolean;

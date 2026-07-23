@@ -1,0 +1,5 @@
+edition = "2021"
+max_width = 100
+# Keep short struct literals, method chains and control-flow bodies on one line
+# when they fit — matches the compact style used throughout the crate.
+use_small_heuristics = "Max"

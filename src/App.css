@@ -6,34 +6,39 @@
 }
 
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ── Dark theme tokens ─────────────────────────────────────── */
 :root {
-  --bg:          #0d1117;
-  --bg-card:     #161b22;
-  --bg-section:  #1c2230;
-  --border:      #21293a;
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-section: #1c2230;
+  --border: #21293a;
   --border-soft: #1a2233;
 
-  --blue:         #4da6ff;
-  --blue-dim:     #1e4a7a;
-  --blue-focus:   #4da6ff;
-  --green:        #2dce74;
-  --green-dim:    #12472e;
+  --blue: #4da6ff;
+  --blue-dim: #1e4a7a;
+  --blue-focus: #4da6ff;
+  --green: #2dce74;
+  --green-dim: #12472e;
   --green-border: #1d5c39;
-  --red:          #f05050;
-  --red-dim:      #4a1818;
-  --red-border:   #6b2020;
-  --yellow-dim:   #3a3010;
-  --yellow-border:#6b5a10;
-  --yellow:       #f0c040;
+  --red: #f05050;
+  --red-dim: #4a1818;
+  --red-border: #6b2020;
+  --yellow-dim: #3a3010;
+  --yellow-border: #6b5a10;
+  --yellow: #f0c040;
 
-  --text:       #e6edf3;
+  --text: #e6edf3;
   --text-muted: #8b9eb5;
-  --text-dim:   #6b7f96;
+  --text-dim: #6b7f96;
 
   --mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
 }
@@ -41,39 +46,49 @@
 /* ── Light theme tokens ────────────────────────────────────── */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg:          #f5f7fa;
-    --bg-card:     #ffffff;
-    --bg-section:  #eef1f6;
-    --border:      #d0d7e2;
+    --bg: #f5f7fa;
+    --bg-card: #ffffff;
+    --bg-section: #eef1f6;
+    --border: #d0d7e2;
     --border-soft: #e4e8f0;
 
-    --blue:         #1a6fcf;
-    --blue-dim:     #d6e8ff;
-    --blue-focus:   #1a6fcf;
-    --green:        #1a7a48;
-    --green-dim:    #d4f5e4;
+    --blue: #1a6fcf;
+    --blue-dim: #d6e8ff;
+    --blue-focus: #1a6fcf;
+    --green: #1a7a48;
+    --green-dim: #d4f5e4;
     --green-border: #a3d9bf;
-    --red:          #c0392b;
-    --red-dim:      #fde8e8;
-    --red-border:   #f5a8a8;
-    --yellow-dim:   #fffbeb;
-    --yellow-border:#f0c040;
-    --yellow:       #9a6800;
+    --red: #c0392b;
+    --red-dim: #fde8e8;
+    --red-border: #f5a8a8;
+    --yellow-dim: #fffbeb;
+    --yellow-border: #f0c040;
+    --yellow: #9a6800;
 
-    --text:       #1a202c;
+    --text: #1a202c;
     --text-muted: #4a5568;
-    --text-dim:   #64748b;
+    --text-dim: #64748b;
   }
 
-  .state-blocked { --bg: #fff5f5; }
-  .state-safe    { --bg: #f5f7fa; }
+  .state-blocked {
+    --bg: #fff5f5;
+  }
+  .state-safe {
+    --bg: #f5f7fa;
+  }
 }
 
 /* ── Forced colours (Windows High Contrast etc.) ───────────── */
 @media (forced-colors: active) {
-  .toggle          { forced-color-adjust: none; }
-  .status-dot      { forced-color-adjust: none; }
-  .block-indicator { border: 2px solid ButtonText; }
+  .toggle {
+    forced-color-adjust: none;
+  }
+  .status-dot {
+    forced-color-adjust: none;
+  }
+  .block-indicator {
+    border: 2px solid ButtonText;
+  }
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -89,14 +104,18 @@ body {
 
 /* ── Reduced motion ────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
 }
 
 /* ── Global focus — WCAG 2.4.11 ───────────────────────────── */
-:focus { outline: none; }
+:focus {
+  outline: none;
+}
 :focus-visible {
   outline: 2px solid var(--blue-focus);
   outline-offset: 2px;
@@ -104,8 +123,12 @@ body {
 }
 
 /* ── App state backgrounds ─────────────────────────────────── */
-.state-blocked { --bg: #110d0d; }
-.state-safe    { --bg: #0d1117; }
+.state-blocked {
+  --bg: #110d0d;
+}
+.state-safe {
+  --bg: #0d1117;
+}
 
 /* ── Toggle switch (pseudo-element component) ──────────────── */
 .toggle {
@@ -119,7 +142,9 @@ body {
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 .toggle::after {
   content: "";
@@ -130,11 +155,22 @@ body {
   border-radius: 50%;
   top: 2px;
   left: 2px;
-  transition: left 0.2s, background 0.2s;
+  transition:
+    left 0.2s,
+    background 0.2s;
 }
-.toggle:checked            { background: var(--blue-dim); border-color: var(--blue); }
-.toggle:checked::after     { left: 18px; background: var(--blue); }
-.toggle:focus-visible      { outline: 2px solid var(--blue-focus); outline-offset: 2px; }
+.toggle:checked {
+  background: var(--blue-dim);
+  border-color: var(--blue);
+}
+.toggle:checked::after {
+  left: 18px;
+  background: var(--blue);
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--blue-focus);
+  outline-offset: 2px;
+}
 
 /* ── Field input ───────────────────────────────────────────── */
 .field-input {
@@ -146,11 +182,15 @@ body {
   padding: 5px 9px;
   font-size: 12px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .field-input:focus-visible {
   outline: 2px solid var(--blue-focus);
   outline-offset: 2px;
   border-color: var(--blue);
 }
-.field-input.mono { font-family: var(--mono); }
+.field-input.mono {
+  font-family: var(--mono);
+}
