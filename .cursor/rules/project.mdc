@@ -1,0 +1,62 @@
+---
+description: Claude Guard project context, architecture, and invariants
+globs:
+alwaysApply: true
+---
+
+# Claude Guard — Cursor rules
+
+Tauri v2 desktop app (Rust core + React/TS UI) that blocks outbound traffic to
+`api.anthropic.com` and `claude.ai` at the OS firewall level when the machine's
+public exit IP is Russian. Targets macOS, Linux, Windows.
+
+This is a **security tool**: failing *open* (traffic flows when it should be
+blocked) is far worse than failing *closed*. Weigh every change to the guard loop
+or a firewall backend against that.
+
+## Where things live
+
+- `src-tauri/src/guard.rs` — the check loop and block/unblock decisions (core).
+- `src-tauri/src/firewall/{mod,macos,linux,windows}.rs` — per-OS firewall via
+  `pfctl` / `nftables`+`iptables` / `netsh`. Rules are isolated in a `claude_guard`
+  anchor/table/chain.
+- `src-tauri/src/{config,ip_checker,vpn_detector}.rs` — settings, ipinfo.io client
+  (60s cache), VPN detection.
+- `src-tauri/src/main.rs` — Tauri entry, tray, `cmd_*` IPC commands.
+- `src/` — React UI (`App.tsx`, `components/StatusCard.tsx`, `Settings.tsx`);
+  types mirror the Rust structs in `src/types.ts` using serde `snake_case`.
+- `docs/` — user documentation. `CLAUDE.md` — fuller AI-assistant guide.
+
+## Invariants — never break these
+
+- **Fail-closed.** Block on startup; unblock only after a successful non-Russian
+  IP check. On IP-service or DNS failure, leave existing rules untouched. A
+  firewall command that fails must return `Err` and surface in status — never a
+  silent `Ok`.
+- **Isolated rules.** Only ever touch the `claude_guard` anchor/table/chain; never
+  flush or edit the user's other firewall rules.
+- **Least privilege.** If you change the commands a backend runs, update the
+  matching `sudoers` line in `install.sh` and `uninstall.sh`, or blocking breaks
+  silently.
+- Keep `block()` idempotent — it is re-applied every cycle to re-resolve rotating
+  Anthropic/CDN IPs.
+
+## Conventions
+
+- Rust: stable toolchain; `cargo clippy -- -D warnings` must pass; no
+  `unwrap()`/`expect()` in non-test production paths. Prefer small pure helpers
+  that are unit-testable without a running Tauri app.
+- TypeScript: strict mode, no `any`.
+- UI: maintain WCAG 2.2 AA (ARIA roles, focus-visible, light/dark contrast,
+  reduced-motion / forced-colors).
+- Comments explain *why*, not *what*; no marketing tone.
+
+## Before finishing a change
+
+Run the checks that apply (all enforced by CI in `.github/workflows/ci.yml`):
+
+- Frontend: `npm run lint`, `npm run format:check`, `npm run build`
+- Rust (from `src-tauri/`): `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`
+
+Formatting is owned by Prettier (TS/CSS/JSON/Markdown) and rustfmt (Rust) — don't
+hand-format against them.

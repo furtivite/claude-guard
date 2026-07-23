@@ -5,6 +5,8 @@
 
 Blocks traffic to `api.anthropic.com` and `claude.ai` when your IP is Russian — regardless of VPN state.
 
+📖 **[Full documentation](docs/README.md)** — detailed guides for installation, configuration, VPN modes, and how it works.
+
 ## Features
 
 - 🔴 Blocks Anthropic traffic at OS firewall level when Russian IP detected
@@ -17,26 +19,28 @@ Blocks traffic to `api.anthropic.com` and `claude.ai` when your IP is Russian �
 
 ## Platforms
 
-| Platform | Firewall |
-|----------|----------|
-| macOS | `pfctl` anchor `claude_guard` |
-| Linux | `nftables` (autodetect) or `iptables` |
-| Windows | `netsh advfirewall` |
+| Platform | Firewall                              |
+| -------- | ------------------------------------- |
+| macOS    | `pfctl` anchor `claude_guard`         |
+| Linux    | `nftables` (autodetect) or `iptables` |
+| Windows  | `netsh advfirewall`                   |
 
 ## Install
 
 Go to [Releases](../../releases/latest) and download the file for your platform.
 
-| Platform | File | Notes |
-|----------|------|-------|
-| macOS | `.dmg` | Universal binary — Apple Silicon + Intel |
-| Linux | `.deb` or `.AppImage` | |
-| Windows | `.msi` | Run as Administrator |
+| Platform | File                  | Notes                                    |
+| -------- | --------------------- | ---------------------------------------- |
+| macOS    | `.dmg`                | Universal binary — Apple Silicon + Intel |
+| Linux    | `.deb` or `.AppImage` |                                          |
+| Windows  | `.msi`                | Run as Administrator                     |
 
 ### macOS
+
 1. Open `.dmg`, drag **Claude Guard** to Applications
 2. First launch: right-click → **Open** (Gatekeeper workaround for unsigned app)
 3. Run once to set firewall permissions:
+
 ```bash
 # Download and inspect before running — never pipe curl directly to bash
 curl -fsSL https://raw.githubusercontent.com/furtivite/claude-guard/main/install.sh -o install.sh
@@ -45,6 +49,7 @@ bash install.sh
 ```
 
 ### Linux
+
 ```bash
 # Download and verify install.sh before running
 curl -fsSL https://raw.githubusercontent.com/furtivite/claude-guard/main/install.sh -o install.sh
@@ -58,6 +63,7 @@ chmod +x claude-guard_*.AppImage && bash install.sh && ./claude-guard_*.AppImage
 ```
 
 ### Windows
+
 Run `.msi` as Administrator. Firewall rules are configured automatically on first launch.
 
 ---
@@ -98,22 +104,22 @@ Removes: firewall rules, sudoers entry, app data. Delete the folder manually aft
 
 Settings are stored in the app UI (Settings tab):
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| VPN mode | `ip_only` | How to detect VPN: `ip_only`, `port`, `process` |
-| VPN port | `10808` | Port to check (Happ/Xray mode) |
-| VPN process | — | Process name to check |
-| Check interval | `30s` | How often to check IP |
-| Show in tray | `true` | Menu bar / system tray icon |
-| Enabled | `true` | Master on/off switch |
+| Setting        | Default   | Description                                     |
+| -------------- | --------- | ----------------------------------------------- |
+| VPN mode       | `ip_only` | How to detect VPN: `ip_only`, `port`, `process` |
+| VPN port       | `10808`   | Port to check (Happ/Xray mode)                  |
+| VPN process    | —         | Process name to check                           |
+| Check interval | `30s`     | How often to check IP                           |
+| Show in tray   | `true`    | Menu bar / system tray icon                     |
+| Enabled        | `true`    | Master on/off switch                            |
 
 ## VPN mode guide
 
-| VPN | Recommended mode |
-|-----|-----------------|
-| Pepper VPN | `ip_only` |
-| Harp | `ip_only` |
-| Happ / Xray | `port` → 10808 |
+| VPN                | Recommended mode       |
+| ------------------ | ---------------------- |
+| Pepper VPN         | `ip_only`              |
+| Harp               | `ip_only`              |
+| Happ / Xray        | `port` → 10808         |
 | Wireguard (manual) | `ip_only` or `process` |
 
 ## Need help?
@@ -137,3 +143,18 @@ Do not use `RUST_LOG=debug` on shared machines — IP addresses appear in output
 - If `ipinfo.io` is unreachable → **existing firewall rules are preserved** (fail-closed)
 - IP result is cached 60 seconds — no excess traffic
 - Firewall anchor is isolated — system rules are never touched
+- Blocklist is **re-resolved every check cycle**, so rotating Anthropic IPs are picked up
+
+## Limitations
+
+- **IP-based blocking.** Rules target the IP addresses that `api.anthropic.com` /
+  `claude.ai` resolve to _at block time_. Anthropic sits behind a CDN with a large,
+  rotating address pool, so a connection that resolves to an edge IP not yet in the
+  blocklist can slip through until the next check cycle re-resolves it (default 30 s).
+  This is best-effort defence-in-depth, not an airtight filter.
+- **Trusts the local DNS resolver.** If your network hijacks DNS for these domains,
+  the blocklist will target the wrong IPs.
+- **`sudo` scope.** The installer grants `NOPASSWD` only for the specific firewall
+  commands the app runs (scoped to the `claude_guard` anchor/table/chain). The one
+  exception is `nft -f -`, which reads a ruleset from stdin and therefore remains
+  broad; see [CONTRIBUTING.md](CONTRIBUTING.md) for the planned helper-wrapper fix.
