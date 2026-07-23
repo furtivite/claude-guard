@@ -64,6 +64,25 @@ jobs:
       - name: Generate icons
         run: npx tauri icon src-tauri/icons/icon.png
 
+      # Pull the section for this tag out of CHANGELOG.md for the release body
+      - name: Prepare release notes
+        id: notes
+        shell: bash
+        run: |
+          section=$(awk -v tag="## ${GITHUB_REF_NAME}" 'index($0,tag)==1{f=1;next} /^## /{f=0} f' CHANGELOG.md)
+          {
+            echo "body<<RELEOF"
+            printf '%s\n\n' "$section"
+            printf '## Install\n\n'
+            printf '| Platform | File |\n'
+            printf '| --- | --- |\n'
+            printf '| macOS (Apple Silicon + Intel) | `.dmg` |\n'
+            printf '| Linux | `.deb` or `.AppImage` |\n'
+            printf '| Windows | `.msi` |\n\n'
+            printf 'See the [documentation](https://github.com/furtivite/claude-guard/blob/main/docs/installation.md) for step-by-step setup.\n'
+            echo "RELEOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build & bundle
         uses: tauri-apps/tauri-action@v0
         env:
@@ -78,26 +97,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Claude Guard ${{ github.ref_name }}
-          releaseBody: |
-            ## Install
-
-            | Platform | File |
-            |----------|------|
-            | macOS (Apple Silicon + Intel) | `.dmg` |
-            | Linux | `.deb` or `.AppImage` |
-            | Windows | `.msi` |
-
-            ### macOS
-            1. Download `.dmg`, open it, drag **Claude Guard** to Applications
-            2. First launch: right-click → Open (Gatekeeper bypass for unsigned app)
-            3. Run once in Terminal: `./install.sh` (sets up firewall permissions)
-
-            ### Linux
-            **deb:** `sudo dpkg -i claude-guard_*.deb && ./install.sh`
-            **AppImage:** `chmod +x claude-guard_*.AppImage && ./install.sh && ./claude-guard_*.AppImage`
-
-            ### Windows
-            Run `.msi` as Administrator — firewall rules configured automatically on first launch.
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
