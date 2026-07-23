@@ -60,10 +60,7 @@ pub struct GuardState {
 
 impl GuardState {
     pub fn new() -> Self {
-        Self {
-            status: Status::default(),
-            firewall: firewall::platform(),
-        }
+        Self { status: Status::default(), firewall: firewall::platform() }
     }
 }
 
@@ -157,19 +154,30 @@ async fn transition(
     reason: BlockReason,
 ) {
     let was_blocked = s.firewall.is_blocked();
+    let mut err = None;
 
-    if should_block && !was_blocked {
+    if should_block {
+        // Re-apply on every cycle (not just on the false→true edge) so that
+        // rotating Anthropic/Cloudflare IPs are re-resolved and the blocklist
+        // stays current. block() is idempotent — it replaces the ruleset.
         match s.firewall.block() {
-            Ok(()) => notify(app, "🔴 Blocked", "Russian IP detected. Anthropic traffic blocked."),
+            // Old rules stay in place if this fails, so we remain fail-closed.
+            Ok(()) if !was_blocked => {
+                notify(app, "🔴 Blocked", "Russian IP detected. Anthropic traffic blocked.")
+            }
+            Ok(()) => {}
             Err(e) => {
                 log::error!("firewall::block failed: {e}");
-                s.status.error = Some(e);
+                err = Some(e);
             }
         }
-    } else if !should_block && was_blocked {
+    } else if was_blocked {
         match s.firewall.unblock() {
             Ok(()) => notify(app, "🟢 Safe", "Non-Russian IP. Anthropic access restored."),
-            Err(e) => log::error!("firewall::unblock failed: {e}"),
+            Err(e) => {
+                log::error!("firewall::unblock failed: {e}");
+                err = Some(e);
+            }
         }
     }
 
@@ -181,7 +189,7 @@ async fn transition(
         vpn_active,
         guard_enabled: true,
         last_check: Some(now()),
-        error: None,
+        error: err,
     };
 
     update_tray(app, should_block);

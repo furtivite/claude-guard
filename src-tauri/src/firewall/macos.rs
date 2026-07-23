@@ -27,10 +27,14 @@ impl MacosFirewall {
 
         if !out.status.success() {
             let stderr = String::from_utf8_lossy(&out.stderr);
-            // pfctl -e returns exit 1 with "pf already enabled" — not an error for us
-            if !stderr.contains("pf already enabled") && !stderr.is_empty() {
-                log::warn!("pfctl stderr: {stderr}");
+            // `pfctl -e` exits 1 with "pf already enabled" — benign, PF is on.
+            if stderr.contains("pf already enabled") {
+                return Ok(());
             }
+            // Any other non-zero exit means the firewall was NOT applied.
+            // Returning Err is essential: a silent Ok here would make block()
+            // report success while traffic keeps flowing (fail-open).
+            return Err(format!("pfctl {args:?} failed: {}", stderr.trim()));
         }
         Ok(())
     }
@@ -46,7 +50,7 @@ impl MacosFirewall {
         child
             .stdin
             .take()
-            .unwrap()
+            .ok_or("pfctl: failed to capture stdin")?
             .write_all(rules.as_bytes())
             .map_err(|e| format!("pfctl stdin: {e}"))?;
 

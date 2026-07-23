@@ -5,3 +5,8 @@ src-tauri/gen/
 *.log
 .env
 .DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp

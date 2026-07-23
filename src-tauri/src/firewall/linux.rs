@@ -15,7 +15,10 @@ const TABLE: &str = "claude_guard";
 const CHAIN: &str = "CLAUDE_GUARD";
 
 #[derive(Debug, Clone, PartialEq)]
-enum Backend { Nftables, Iptables }
+enum Backend {
+    Nftables,
+    Iptables,
+}
 
 pub struct LinuxFirewall {
     backend: Backend,
@@ -24,10 +27,7 @@ pub struct LinuxFirewall {
 
 impl LinuxFirewall {
     pub fn new() -> Self {
-        Self {
-            backend: detect_backend(),
-            blocked: AtomicBool::new(false),
-        }
+        Self { backend: detect_backend(), blocked: AtomicBool::new(false) }
     }
 }
 
@@ -59,7 +59,9 @@ impl Firewall for LinuxFirewall {
     fn block(&self) -> Result<(), String> {
         let ips = resolve_domains();
         if ips.is_empty() {
-            return Err("DNS resolution returned no IPs — not blocking to avoid false positives".into());
+            return Err(
+                "DNS resolution returned no IPs — not blocking to avoid false positives".into()
+            );
         }
 
         match self.backend {
@@ -110,7 +112,10 @@ fn block_nft(ips: &[String]) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("nft spawn: {e}"))?;
 
-    child.stdin.take().unwrap()
+    child
+        .stdin
+        .take()
+        .ok_or("nft: failed to capture stdin")?
         .write_all(ruleset.as_bytes())
         .map_err(|e| format!("nft stdin: {e}"))?;
 
@@ -139,8 +144,19 @@ fn block_ipt(ips: &[String]) -> Result<(), String> {
 
     for ip in ips {
         Command::new("sudo")
-            .args(["iptables", "-A", CHAIN, "-d", ip, "-j", "DROP",
-                   "-m", "comment", "--comment", "claude-guard"])
+            .args([
+                "iptables",
+                "-A",
+                CHAIN,
+                "-d",
+                ip,
+                "-j",
+                "DROP",
+                "-m",
+                "comment",
+                "--comment",
+                "claude-guard",
+            ])
             .output()
             .map_err(|e| format!("iptables add {ip}: {e}"))?;
     }

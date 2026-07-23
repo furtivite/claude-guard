@@ -11,7 +11,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewWindowBuilder,
+    Manager, Runtime, WebviewWindowBuilder,
 };
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
@@ -62,13 +62,33 @@ pub fn run() {
         .expect("tauri failed to start");
 }
 
-fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
-    let toggle_label = if enabled { "Disable protection" } else { "Enable protection" };
+/// Tooltip shown on hover, reflecting whether protection is on.
+fn tray_tooltip(enabled: bool) -> &'static str {
+    if enabled {
+        "Claude Guard — Active"
+    } else {
+        "Claude Guard — Disabled"
+    }
+}
 
-    let toggle = MenuItem::with_id(app, "toggle", toggle_label, true, None::<&str>)?;
-    let show   = MenuItem::with_id(app, "show",   "Open Status",       true, None::<&str>)?;
-    let quit   = MenuItem::with_id(app, "quit",   "Quit",              true, None::<&str>)?;
-    let menu   = Menu::with_items(app, &[&toggle, &show, &quit])?;
+/// Builds the tray context menu for the given protection state.
+///
+/// Generic over the manager so it serves both `App` (at setup) and `AppHandle`
+/// (on later rebuilds) — Tauri v2 has no API to relabel a single item, so the
+/// whole menu is rebuilt whenever `enabled` changes.
+fn build_tray_menu<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    enabled: bool,
+) -> tauri::Result<Menu<R>> {
+    let toggle_label = if enabled { "Disable protection" } else { "Enable protection" };
+    let toggle = MenuItem::with_id(manager, "toggle", toggle_label, true, None::<&str>)?;
+    let show = MenuItem::with_id(manager, "show", "Open Status", true, None::<&str>)?;
+    let quit = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
+    Menu::with_items(manager, &[&toggle, &show, &quit])
+}
+
+fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
+    let menu = build_tray_menu(app, enabled)?;
 
     let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))
         .expect("bundled icon.png is invalid");
@@ -76,7 +96,7 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
     TrayIconBuilder::with_id("main")
         .icon(icon)
         .menu(&menu)
-        .tooltip(if enabled { "Claude Guard — Active" } else { "Claude Guard — Disabled" })
+        .tooltip(tray_tooltip(enabled))
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
@@ -104,23 +124,13 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
 }
 
 /// Rebuilds the tray menu and tooltip to reflect the current `enabled` state.
-// Tauri v2 requires rebuilding the full menu to update a single item's label.
 pub fn update_tray_menu(app: &tauri::AppHandle, enabled: bool) {
     let Some(tray) = app.tray_by_id("main") else { return };
 
-    let label = if enabled { "Disable protection" } else { "Enable protection" };
-    let tooltip = if enabled { "Claude Guard — Active" } else { "Claude Guard — Disabled" };
-
-    if let (Ok(toggle), Ok(show), Ok(quit)) = (
-        MenuItem::with_id(app, "toggle", label,         true, None::<&str>),
-        MenuItem::with_id(app, "show",   "Open Status", true, None::<&str>),
-        MenuItem::with_id(app, "quit",   "Quit",        true, None::<&str>),
-    ) {
-        if let Ok(menu) = Menu::with_items(app, &[&toggle, &show, &quit]) {
-            let _ = tray.set_menu(Some(menu));
-        }
+    if let Ok(menu) = build_tray_menu(app, enabled) {
+        let _ = tray.set_menu(Some(menu));
     }
-    let _ = tray.set_tooltip(Some(tooltip));
+    let _ = tray.set_tooltip(Some(tray_tooltip(enabled)));
 }
 
 fn toggle_window(app: &tauri::AppHandle) {
@@ -134,9 +144,7 @@ fn toggle_window(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-async fn cmd_get_status(
-    state: tauri::State<'_, SharedState>,
-) -> Result<guard::Status, String> {
+async fn cmd_get_status(state: tauri::State<'_, SharedState>) -> Result<guard::Status, String> {
     Ok(state.lock().await.status.clone())
 }
 
@@ -150,10 +158,17 @@ async fn cmd_save_settings(
     app: tauri::AppHandle,
     settings: serde_json::Value,
 ) -> Result<(), String> {
+    // Whitelist known keys so the store can't be polluted with arbitrary entries.
+    const ALLOWED_KEYS: &[&str] =
+        &["enabled", "check_interval", "show_tray", "vpn_mode", "vpn_port", "vpn_process"];
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     if let Some(obj) = settings.as_object() {
         for (k, v) in obj {
-            store.set(k.clone(), v.clone());
+            if ALLOWED_KEYS.contains(&k.as_str()) {
+                store.set(k.clone(), v.clone());
+            } else {
+                log::warn!("cmd_save_settings: ignoring unknown key {k:?}");
+            }
         }
     }
     store.save().map_err(|e| e.to_string())
@@ -182,11 +197,7 @@ async fn cmd_toggle_enabled(
 }
 
 async fn do_toggle_enabled(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let state = app
-        .try_state::<SharedState>()
-        .ok_or("state not found")?
-        .inner()
-        .clone();
+    let state = app.try_state::<SharedState>().ok_or("state not found")?.inner().clone();
     do_toggle_enabled_with_state(app, &state, enabled).await
 }
 
@@ -201,11 +212,10 @@ async fn do_toggle_enabled_with_state(
 
     update_tray_menu(app, enabled);
 
-    let app_clone = app.clone();
-    let state_clone = state.clone();
-    tokio::spawn(async move {
-        guard::force_check(app_clone, state_clone).await;
-    });
+    // Await the check (rather than spawning it detached) so the firewall state is
+    // applied before this returns. That makes rapid enable/disable toggles resolve
+    // in call order instead of racing several detached tasks for the state lock.
+    guard::force_check(app.clone(), state.clone()).await;
 
     Ok(())
 }

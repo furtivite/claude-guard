@@ -2,11 +2,13 @@
 //!
 //! MITM protection:
 //! - `no_proxy()` bypasses the system proxy so the real exit IP is checked.
-//! - `rustls-tls` with only Mozilla WebPKI roots — the system certificate store is
-//!   excluded, so corporate or antivirus CAs cannot issue a trusted cert for ipinfo.io.
+//! - The `rustls-tls` feature (with `default-features = false` in Cargo.toml) uses
+//!   only the bundled Mozilla `webpki-roots`; the OS certificate store is never
+//!   consulted, so a corporate or antivirus CA installed on the machine cannot
+//!   issue a trusted cert for ipinfo.io.
 //!
-//! Full SPKI pinning would require a custom rustls verifier; excluding the system store
-//! provides ~95% of the same protection at a fraction of the complexity.
+//! Full SPKI pinning would require a custom rustls verifier; excluding the system
+//! store gives most of that protection at a fraction of the complexity.
 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
@@ -29,6 +31,7 @@ pub struct IpInfo {
 
 impl IpInfo {
     // ipinfo.io free tier does not return a full country name
+    #[rustfmt::skip]
     fn country_name(code: &str) -> &'static str {
         match code {
             "AE" => "UAE",           "AT" => "Austria",
@@ -45,6 +48,15 @@ impl IpInfo {
             "UA" => "Ukraine",       "US" => "United States",
             _ => "",
         }
+    }
+
+    /// Pure classification of a raw ipinfo country field into the fields we store.
+    /// Extracted from `fetch` so it can be unit-tested without network access.
+    fn classify(raw_country: Option<String>) -> (bool, String, String) {
+        let code = raw_country.unwrap_or_default().to_uppercase();
+        let name = Self::country_name(&code);
+        let country = if name.is_empty() { code.clone() } else { name.to_owned() };
+        (code == "RU", country, code)
     }
 }
 
@@ -86,7 +98,6 @@ async fn fetch() -> Result<IpInfo, String> {
     let client = reqwest::Client::builder()
         .timeout(REQUEST_TIMEOUT)
         .no_proxy()
-        .tls_built_in_root_certs(true)
         .build()
         .map_err(|e| format!("HTTP client: {e}"))?;
 
@@ -100,16 +111,52 @@ async fn fetch() -> Result<IpInfo, String> {
         .await
         .map_err(|e| format!("ipinfo parse: {e}"))?;
 
-    let code = raw.country.unwrap_or_default().to_uppercase();
-    let name = IpInfo::country_name(&code);
+    let (is_russian, country, country_code) = IpInfo::classify(raw.country);
 
     Ok(IpInfo {
-        is_russian: code == "RU",
-        country: if name.is_empty() { code.clone() } else { name.to_owned() },
-        country_code: code,
+        is_russian,
+        country,
+        country_code,
         ip: raw.ip.unwrap_or_default(),
         city: raw.city.unwrap_or_else(|| "—".into()),
         region: raw.region.unwrap_or_else(|| "—".into()),
         org: raw.org.unwrap_or_else(|| "—".into()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn russian_code_is_flagged() {
+        let (is_ru, country, code) = IpInfo::classify(Some("ru".into()));
+        assert!(is_ru);
+        assert_eq!(country, "Russia");
+        assert_eq!(code, "RU");
+    }
+
+    #[test]
+    fn non_russian_code_is_not_flagged() {
+        let (is_ru, country, code) = IpInfo::classify(Some("de".into()));
+        assert!(!is_ru);
+        assert_eq!(country, "Germany");
+        assert_eq!(code, "DE");
+    }
+
+    #[test]
+    fn unknown_code_falls_back_to_code_as_name() {
+        let (is_ru, country, code) = IpInfo::classify(Some("zz".into()));
+        assert!(!is_ru);
+        assert_eq!(country, "ZZ");
+        assert_eq!(code, "ZZ");
+    }
+
+    #[test]
+    fn missing_country_is_not_russian() {
+        let (is_ru, country, code) = IpInfo::classify(None);
+        assert!(!is_ru);
+        assert_eq!(country, "");
+        assert_eq!(code, "");
+    }
 }

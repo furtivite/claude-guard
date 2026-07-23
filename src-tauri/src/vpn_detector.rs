@@ -52,12 +52,9 @@ impl VpnDetector {
     }
 
     fn port_open(&self) -> bool {
-        use std::net::TcpStream;
-        TcpStream::connect_timeout(
-            &format!("127.0.0.1:{}", self.port).parse().unwrap(),
-            Duration::from_millis(300),
-        )
-        .is_ok()
+        use std::net::{SocketAddr, TcpStream};
+        let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
+        TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
     }
 
     fn process_running(&self) -> bool {
@@ -79,5 +76,27 @@ impl VpnDetector {
                 .map(|o| String::from_utf8_lossy(&o.stdout).contains(self.process.as_str()))
                 .unwrap_or(false)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ip_only_is_always_active() {
+        let d = VpnDetector::new(VpnMode::IpOnly, 0, String::new());
+        assert!(d.is_active());
+    }
+
+    #[test]
+    fn empty_process_name_is_never_running() {
+        let d = VpnDetector::new(VpnMode::Process, 0, String::new());
+        assert!(!d.is_active());
+    }
+
+    #[test]
+    fn default_mode_is_ip_only() {
+        assert_eq!(VpnMode::default(), VpnMode::IpOnly);
     }
 }

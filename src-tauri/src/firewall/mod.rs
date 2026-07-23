@@ -18,6 +18,10 @@ pub const BLOCKED_DOMAINS: &[&str] = &["api.anthropic.com", "claude.ai"];
 pub trait Firewall: Send + Sync {
     fn block(&self) -> Result<(), String>;
     fn unblock(&self) -> Result<(), String>;
+    /// Reflects the last *successfully applied* state (the internal flag is only
+    /// flipped after `block`/`unblock` returns `Ok`), so the fail-closed path can
+    /// trust it. On process restart the flag starts `false`; `run_loop` reconciles
+    /// this by (re-)applying `block()` on startup whenever the guard is enabled.
     fn is_blocked(&self) -> bool;
 }
 
