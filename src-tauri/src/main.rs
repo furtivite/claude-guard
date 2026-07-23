@@ -8,6 +8,7 @@ mod vpn_detector;
 
 use std::sync::Arc;
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager, WebviewWindowBuilder,
@@ -69,8 +70,11 @@ fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
     let quit   = MenuItem::with_id(app, "quit",   "Quit",              true, None::<&str>)?;
     let menu   = Menu::with_items(app, &[&toggle, &show, &quit])?;
 
+    let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))
+        .expect("bundled icon.png is invalid");
+
     TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .menu(&menu)
         .tooltip(if enabled { "Claude Guard — Active" } else { "Claude Guard — Disabled" })
         .show_menu_on_left_click(false)
