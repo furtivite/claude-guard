@@ -90,11 +90,21 @@ fn build_tray_menu<R: Runtime, M: Manager<R>>(
 fn setup_tray(app: &tauri::App, enabled: bool) -> tauri::Result<()> {
     let menu = build_tray_menu(app, enabled)?;
 
-    let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))
-        .expect("bundled icon.png is invalid");
+    // macOS menu bar expects a monochrome *template* image that the system
+    // recolors for the light/dark bar. Windows and Linux have no such recoloring,
+    // so use the full-color icon there — a black silhouette would vanish on dark
+    // taskbars/panels.
+    #[cfg(target_os = "macos")]
+    let (icon_bytes, is_template): (&[u8], bool) = (&include_bytes!("../icons/tray.png")[..], true);
+    #[cfg(not(target_os = "macos"))]
+    let (icon_bytes, is_template): (&[u8], bool) =
+        (&include_bytes!("../icons/icon.png")[..], false);
+
+    let icon = Image::from_bytes(icon_bytes).expect("bundled tray icon is invalid");
 
     TrayIconBuilder::with_id("main")
         .icon(icon)
+        .icon_as_template(is_template)
         .menu(&menu)
         .tooltip(tray_tooltip(enabled))
         .show_menu_on_left_click(false)

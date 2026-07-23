@@ -10,3 +10,13 @@ src-tauri/gen/
 .idea/
 .vscode/
 *.swp
+
+# Icons generated from icon.png / tray.png by `tauri icon` (regenerated in CI).
+# Only the source PNGs + the desktop sizes referenced in tauri.conf.json are tracked.
+src-tauri/icons/icon.icns
+src-tauri/icons/icon.ico
+src-tauri/icons/64x64.png
+src-tauri/icons/Square*Logo.png
+src-tauri/icons/StoreLogo.png
+src-tauri/icons/android/
+src-tauri/icons/ios/
