@@ -35,8 +35,12 @@ pub fn resolve_blocked_ips() -> Vec<IpAddr> {
     seen.into_iter().collect()
 }
 
-/// Splits resolved addresses into (v4, v6) as display strings. The families are
-/// configured through different mechanisms on every platform, so they never mix.
+/// Splits resolved addresses into (v4, v6) as display strings.
+///
+/// Only macOS and Linux need this: PF kills states per family and nftables/iptables
+/// configure them through separate sets and binaries. Windows passes either family
+/// to the same `netsh remoteip`, so it never splits and would see this as dead code.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub fn split_families(ips: &[IpAddr]) -> (Vec<String>, Vec<String>) {
     let mut v4 = Vec::new();
     let mut v6 = Vec::new();
@@ -73,7 +77,8 @@ pub fn platform() -> Box<dyn Firewall> {
     compile_error!("Unsupported platform");
 }
 
-#[cfg(test)]
+// Mirrors the cfg on split_families — the only thing these cover.
+#[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
 mod tests {
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
