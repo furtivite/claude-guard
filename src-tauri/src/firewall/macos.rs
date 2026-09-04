@@ -2,8 +2,13 @@
 //!
 //! Uses a dedicated PF anchor (`claude_guard`) that is isolated from system rules.
 //! FQDN-based rules are resolved by pfctl at load time, protecting against DNS rebinding.
+//!
+//! Loading rules is not enough on PF: packets belonging to an existing connection are
+//! matched against the state table *before* the ruleset is consulted, so a session that
+//! was already established keeps working until its state expires. Established states to
+//! the blocked addresses are therefore killed explicitly after every load.
 
-use super::{Firewall, BLOCKED_DOMAINS};
+use super::{resolve_blocked_ips, split_families, Firewall, BLOCKED_DOMAINS};
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -60,6 +65,30 @@ impl MacosFirewall {
         }
         Ok(())
     }
+
+    /// Drops established states to the blocked addresses so an in-flight session is
+    /// cut, not just future connections.
+    ///
+    /// Failures are logged rather than propagated: the ruleset is already loaded at
+    /// this point, so new connections are blocked either way. Turning a partial
+    /// success into `Err` would report the machine as unprotected when it mostly is.
+    fn kill_states(&self) {
+        let (v4, v6) = split_families(&resolve_blocked_ips());
+        if v4.is_empty() && v6.is_empty() {
+            log::warn!("pfctl: no addresses resolved, established states left alone");
+            return;
+        }
+
+        // `-k` twice means "from any host, to this host" — without the first `-k`
+        // pfctl would only match states *originating* from the address.
+        for (any, addrs) in [("0.0.0.0/0", &v4), ("::/0", &v6)] {
+            for addr in addrs {
+                if let Err(e) = self.pfctl(&["-k", any, "-k", addr]) {
+                    log::warn!("pfctl: could not kill states to {addr}: {e}");
+                }
+            }
+        }
+    }
 }
 
 impl Firewall for MacosFirewall {
@@ -75,6 +104,7 @@ impl Firewall for MacosFirewall {
 
         self.write_rules(&rules)?;
         self.pfctl(&["-e"])?; // ensure PF is enabled
+        self.kill_states();
         self.blocked.store(true, Ordering::SeqCst);
         log::info!("pfctl: blocked {BLOCKED_DOMAINS:?} via anchor {ANCHOR}");
         Ok(())

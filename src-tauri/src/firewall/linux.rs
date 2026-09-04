@@ -8,10 +8,8 @@
 //! v6-capable host will reach them over IPv6 — blocking only v4 would leave the
 //! traffic flowing over the other family.
 
-use super::{Firewall, BLOCKED_DOMAINS};
-use std::collections::HashSet;
+use super::{resolve_blocked_ips, split_families, Firewall};
 use std::io::Write;
-use std::net::{IpAddr, ToSocketAddrs};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -64,26 +62,8 @@ impl Addresses {
 }
 
 fn resolve_domains() -> Addresses {
-    let mut seen = HashSet::new();
-    for domain in BLOCKED_DOMAINS {
-        match format!("{domain}:443").to_socket_addrs() {
-            Ok(addrs) => {
-                for addr in addrs {
-                    seen.insert(addr.ip());
-                }
-            }
-            Err(e) => log::warn!("DNS resolve failed for {domain}: {e}"),
-        }
-    }
-
-    let mut out = Addresses::default();
-    for ip in seen {
-        match ip {
-            IpAddr::V4(v4) => out.v4.push(v4.to_string()),
-            IpAddr::V6(v6) => out.v6.push(v6.to_string()),
-        }
-    }
-    out
+    let (v4, v6) = split_families(&resolve_blocked_ips());
+    Addresses { v4, v6 }
 }
 
 impl Firewall for LinuxFirewall {
@@ -216,32 +196,64 @@ fn ipt_reset(bin: &str) {
     let _ = Command::new("sudo").args([bin, "-X", CHAIN]).output();
 }
 
+/// Number of rules currently in the chain. A missing chain counts as zero, which is
+/// what a first run should see.
+fn ipt_rule_count(bin: &str) -> usize {
+    let Ok(out) = Command::new("sudo").args([bin, "-S", CHAIN]).output() else {
+        return 0;
+    };
+    if !out.status.success() {
+        return 0;
+    }
+    // `-S` echoes the chain declaration (`-N CLAUDE_GUARD`) before the rules.
+    String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.starts_with("-A")).count()
+}
+
 fn block_ipt(addrs: &Addresses) -> Result<(), String> {
     block_ipt_family("iptables", &addrs.v4)?;
     block_ipt_family("ip6tables", &addrs.v6)
 }
 
 fn block_ipt_family(bin: &str, ips: &[String]) -> Result<(), String> {
-    // Nothing resolved for this family — drop any leftover rules so a stale
-    // address is not blocked forever, then leave the family unconfigured.
+    // Nothing resolved for this family — drop any leftover rules so a stale address
+    // is not blocked forever, then leave the family unconfigured.
     if ips.is_empty() {
         ipt_reset(bin);
         return Ok(());
     }
 
-    // Reset first to avoid accumulating duplicate rules. This briefly leaves the
-    // family unfiltered; closing that window needs a chain swap (tracked in
-    // .local/todo.md as P1-4).
-    ipt_reset(bin);
+    // Fails when the chain already exists, which is the common case.
+    let _ = Command::new("sudo").args([bin, "-N", CHAIN]).output();
 
-    ipt(bin, &["-N", CHAIN])?;
-    ipt(bin, &["-I", "OUTPUT", "-j", CHAIN])?;
+    // The old rules stay in force while the new ones are appended, and the jump is
+    // never removed. Both sets are briefly active, which over-blocks rather than
+    // leaving a window where traffic passes unfiltered.
+    let stale = ipt_rule_count(bin);
 
     for ip in ips {
         ipt(
             bin,
             &["-A", CHAIN, "-d", ip, "-j", "DROP", "-m", "comment", "--comment", "claude-guard"],
         )?;
+    }
+
+    // -C exits non-zero when the jump is absent; only then does it need inserting.
+    let hooked = Command::new("sudo")
+        .args([bin, "-C", "OUTPUT", "-j", CHAIN])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !hooked {
+        ipt(bin, &["-I", "OUTPUT", "-j", CHAIN])?;
+    }
+
+    // Now that the replacements are live, retire the previous generation. Deleting
+    // by index 1 repeatedly always removes the oldest remaining rule.
+    for _ in 0..stale {
+        if let Err(e) = ipt(bin, &["-D", CHAIN, "1"]) {
+            log::warn!("could not retire a superseded {bin} rule: {e}");
+            break;
+        }
     }
     Ok(())
 }

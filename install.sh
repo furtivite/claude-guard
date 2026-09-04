@@ -18,8 +18,13 @@ case "$OS" in
     # NOPASSWD is scoped to the exact pfctl invocations the app makes on the
     # 'claude_guard' anchor. This deliberately does NOT grant blanket pfctl access:
     # e.g. `sudo pfctl -F all` (flush the whole system firewall) is not permitted.
+    #
+    # The `-k` lines kill established states to a blocked address, which PF would
+    # otherwise keep letting through. sudo matches each argument separately, so the
+    # trailing wildcard stands for one address and cannot be widened into a rule load.
     sudo tee /etc/sudoers.d/claude-guard > /dev/null << EOF
 $USERNAME ALL=(root) NOPASSWD: /sbin/pfctl -a claude_guard -f -, /sbin/pfctl -e, /sbin/pfctl -a claude_guard -F all
+$USERNAME ALL=(root) NOPASSWD: /sbin/pfctl -k 0.0.0.0/0 -k *, /sbin/pfctl -k ::/0 -k *
 EOF
     sudo chmod 440 /etc/sudoers.d/claude-guard
     sudo visudo -cf /etc/sudoers.d/claude-guard >/dev/null \
@@ -49,7 +54,9 @@ EOF
       # a v4-only ruleset would leave the traffic flowing over IPv6.
       sudo tee /etc/sudoers.d/claude-guard > /dev/null << EOF
 $USERNAME ALL=(root) NOPASSWD: /sbin/iptables -N CLAUDE_GUARD, /sbin/iptables -I OUTPUT -j CLAUDE_GUARD, /sbin/iptables -A CLAUDE_GUARD *, /sbin/iptables -D OUTPUT -j CLAUDE_GUARD, /sbin/iptables -F CLAUDE_GUARD, /sbin/iptables -X CLAUDE_GUARD
+$USERNAME ALL=(root) NOPASSWD: /sbin/iptables -S CLAUDE_GUARD, /sbin/iptables -C OUTPUT -j CLAUDE_GUARD, /sbin/iptables -D CLAUDE_GUARD *
 $USERNAME ALL=(root) NOPASSWD: /sbin/ip6tables -N CLAUDE_GUARD, /sbin/ip6tables -I OUTPUT -j CLAUDE_GUARD, /sbin/ip6tables -A CLAUDE_GUARD *, /sbin/ip6tables -D OUTPUT -j CLAUDE_GUARD, /sbin/ip6tables -F CLAUDE_GUARD, /sbin/ip6tables -X CLAUDE_GUARD
+$USERNAME ALL=(root) NOPASSWD: /sbin/ip6tables -S CLAUDE_GUARD, /sbin/ip6tables -C OUTPUT -j CLAUDE_GUARD, /sbin/ip6tables -D CLAUDE_GUARD *
 EOF
     fi
     sudo chmod 440 /etc/sudoers.d/claude-guard
