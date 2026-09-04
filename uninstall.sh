@@ -28,9 +28,11 @@ case "$OS" in
     # Clear nftables rules
     sudo nft delete table inet claude_guard 2>/dev/null && echo "✓ nft table removed" || true
     # Clear iptables rules
-    sudo iptables -D OUTPUT -j CLAUDE_GUARD 2>/dev/null || true
-    sudo iptables -F CLAUDE_GUARD 2>/dev/null || true
-    sudo iptables -X CLAUDE_GUARD 2>/dev/null && echo "✓ iptables chain removed" || true
+    for ipt in iptables ip6tables; do
+      sudo "$ipt" -D OUTPUT -j CLAUDE_GUARD 2>/dev/null || true
+      sudo "$ipt" -F CLAUDE_GUARD 2>/dev/null || true
+      sudo "$ipt" -X CLAUDE_GUARD 2>/dev/null && echo "✓ $ipt chain removed" || true
+    done
     # Remove sudoers entry
     sudo rm -f /etc/sudoers.d/claude-guard && echo "✓ sudoers entry removed"
     # Remove app data
@@ -39,7 +41,7 @@ case "$OS" in
 
   *)
     echo "Windows: remove firewall rules manually or run as Administrator:"
-    echo "  netsh advfirewall firewall delete rule name=ClaudeGuard_Block_*"
+    echo "  Get-NetFirewallRule -DisplayName 'ClaudeGuard_*' | Remove-NetFirewallRule"
     ;;
 esac
 

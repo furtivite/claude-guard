@@ -25,10 +25,15 @@ function blockReasonLabel(reason: BlockReason): string {
       return "Starting up, checking IP…";
     case "none":
       return "Non-Russian IP confirmed";
+    case "firewall_error":
+      return "Firewall command failed";
   }
 }
 
 function blockReasonAriaLabel(reason: BlockReason, blocked: boolean): string {
+  if (reason === "firewall_error" && !blocked) {
+    return "Warning: Anthropic traffic is NOT blocked — the firewall rules could not be applied";
+  }
   if (!blocked) return "Anthropic traffic allowed — " + blockReasonLabel(reason);
   return "Anthropic traffic blocked — " + blockReasonLabel(reason);
 }
@@ -53,16 +58,21 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
   const { blocked, block_reason, ip_info, vpn_interface, vpn_active, guard_enabled } = status;
 
   const isUncertain = block_reason === "check_failed" || block_reason === "initializing";
+  // The firewall refused to apply the rules and nothing is in force. This is the one
+  // state that must never read as "allowed" — traffic flows and the user is exposed.
+  const isUnprotected = block_reason === "firewall_error" && !blocked;
 
   return (
     <div className="flex flex-col gap-3">
       <section
         className={`block-indicator flex items-center gap-[14px] p-4 rounded-xl border transition-[background,border-color] duration-300 ${
-          blocked
-            ? isUncertain
-              ? "bg-[var(--yellow-dim)] border-[var(--yellow-border)]"
-              : "bg-[var(--red-dim)] border-[var(--red-border)]"
-            : "bg-[var(--green-dim)] border-[var(--green-border)]"
+          isUnprotected
+            ? "bg-[var(--red-dim)] border-[var(--red-border)]"
+            : blocked
+              ? isUncertain
+                ? "bg-[var(--yellow-dim)] border-[var(--yellow-border)]"
+                : "bg-[var(--red-dim)] border-[var(--red-border)]"
+              : "bg-[var(--green-dim)] border-[var(--green-border)]"
         }`}
         aria-label={
           !guard_enabled
@@ -71,15 +81,25 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
         }
       >
         <span className="text-[28px] leading-none" aria-hidden="true">
-          {!guard_enabled ? "⚪" : blocked ? (isUncertain ? "🟡" : "🔴") : "🟢"}
+          {!guard_enabled
+            ? "⚪"
+            : isUnprotected
+              ? "⚠️"
+              : blocked
+                ? isUncertain
+                  ? "🟡"
+                  : "🔴"
+                : "🟢"}
         </span>
         <div>
           <p className="text-[15px] font-semibold">
             {!guard_enabled
               ? "Guard disabled"
-              : blocked
-                ? "Anthropic BLOCKED"
-                : "Anthropic allowed"}
+              : isUnprotected
+                ? "NOT protected"
+                : blocked
+                  ? "Anthropic BLOCKED"
+                  : "Anthropic allowed"}
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {!guard_enabled ? "Enable in Settings" : blockReasonLabel(block_reason)}

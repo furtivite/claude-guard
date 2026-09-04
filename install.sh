@@ -45,8 +45,11 @@ EOF
     else
       echo "  Firewall: iptables"
       # Scoped to the CLAUDE_GUARD chain — the system's other chains are untouched.
+      # ip6tables is listed alongside iptables: claude.ai publishes AAAA records, so
+      # a v4-only ruleset would leave the traffic flowing over IPv6.
       sudo tee /etc/sudoers.d/claude-guard > /dev/null << EOF
 $USERNAME ALL=(root) NOPASSWD: /sbin/iptables -N CLAUDE_GUARD, /sbin/iptables -I OUTPUT -j CLAUDE_GUARD, /sbin/iptables -A CLAUDE_GUARD *, /sbin/iptables -D OUTPUT -j CLAUDE_GUARD, /sbin/iptables -F CLAUDE_GUARD, /sbin/iptables -X CLAUDE_GUARD
+$USERNAME ALL=(root) NOPASSWD: /sbin/ip6tables -N CLAUDE_GUARD, /sbin/ip6tables -I OUTPUT -j CLAUDE_GUARD, /sbin/ip6tables -A CLAUDE_GUARD *, /sbin/ip6tables -D OUTPUT -j CLAUDE_GUARD, /sbin/ip6tables -F CLAUDE_GUARD, /sbin/ip6tables -X CLAUDE_GUARD
 EOF
     fi
     sudo chmod 440 /etc/sudoers.d/claude-guard
@@ -67,8 +70,16 @@ EOF
     ;;
 
   *)
-    echo "Windows: run the app as Administrator on first launch."
-    echo "Windows Firewall rules are applied via netsh advfirewall."
+    echo "Windows detected (or an unrecognised platform)."
+    echo ""
+    echo "There is nothing to install: Windows Firewall rules are applied through"
+    echo "netsh advfirewall, which needs no sudoers equivalent. It does, however,"
+    echo "require an elevated process."
+    echo ""
+    echo "  Right-click Claude Guard -> Run as administrator."
+    echo ""
+    echo "Without elevation the app cannot add rules and will report"
+    echo "'FIREWALL ERROR, NOT PROTECTED' rather than silently failing open."
     ;;
 esac
 

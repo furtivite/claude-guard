@@ -21,8 +21,15 @@ jobs:
       - run: npm run build
 
   rust:
-    name: Rust (fmt, clippy, test)
-    runs-on: ubuntu-22.04
+    # The firewall backends are #[cfg]-gated, so a single runner only ever compiles
+    # one of them. All three are built here to keep macos.rs/windows.rs from drifting
+    # into a state that only breaks at release time.
+    name: Rust (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +47,7 @@ jobs:
           workspaces: src-tauri
 
       - name: System dependencies
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -54,11 +62,13 @@ jobs:
           npm ci
           npm run build
 
+      # Formatting is platform-independent; checking it once avoids three identical runs.
       - name: rustfmt
+        if: matrix.platform == 'ubuntu-22.04'
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
       - name: clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       - name: test
         run: cargo test --manifest-path src-tauri/Cargo.toml

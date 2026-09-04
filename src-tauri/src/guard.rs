@@ -24,6 +24,10 @@ pub enum BlockReason {
     VpnInactive,
     CheckFailed,
     Initializing,
+    /// A firewall command failed. Combined with `blocked` this distinguishes the
+    /// two outcomes: `blocked == false` means the machine is NOT protected, while
+    /// `blocked == true` means stale rules are still in force and could not be lifted.
+    FirewallError,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,10 +74,20 @@ pub async fn run_loop(app: tauri::AppHandle, state: SharedState) {
     if cfg.enabled {
         let mut s = state.lock().await;
         s.status.guard_enabled = true;
-        s.status.blocked = true;
-        s.status.block_reason = BlockReason::Initializing;
-        if let Err(e) = s.firewall.block() {
-            log::error!("Initial block failed: {e}");
+        let result = s.firewall.block();
+        match result {
+            Ok(()) => {
+                s.status.blocked = true;
+                s.status.block_reason = BlockReason::Initializing;
+            }
+            // Nothing was applied, so reporting `blocked` here would be a lie in the
+            // one direction that matters — the user would think they are protected.
+            Err(e) => {
+                log::error!("Initial block failed: {e}");
+                s.status.blocked = false;
+                s.status.block_reason = BlockReason::FirewallError;
+                s.status.error = Some(e);
+            }
         }
         emit(&app, &s.status);
     } else {
@@ -155,6 +169,10 @@ async fn transition(
 ) {
     let was_blocked = s.firewall.is_blocked();
     let mut err = None;
+    // What the firewall enforces once this cycle is done. It only tracks the intent
+    // when the command succeeds; on failure the previous rules are what remains.
+    let mut applied = should_block;
+    let mut reason = reason;
 
     if should_block {
         // Re-apply on every cycle (not just on the false→true edge) so that
@@ -169,20 +187,34 @@ async fn transition(
             Err(e) => {
                 log::error!("firewall::block failed: {e}");
                 err = Some(e);
+                applied = was_blocked;
+                reason = BlockReason::FirewallError;
+                if !applied {
+                    notify(
+                        app,
+                        "⚠️ NOT protected",
+                        "Russian IP detected but the firewall rules could not be applied.",
+                    );
+                }
             }
         }
     } else if was_blocked {
         match s.firewall.unblock() {
             Ok(()) => notify(app, "🟢 Safe", "Non-Russian IP. Anthropic access restored."),
+            // Failing to lift rules over-blocks, which is the safe direction, but the
+            // UI must not claim traffic is flowing when it is not.
             Err(e) => {
                 log::error!("firewall::unblock failed: {e}");
                 err = Some(e);
+                applied = true;
+                reason = BlockReason::FirewallError;
             }
         }
     }
 
+    let failed = reason == BlockReason::FirewallError;
     s.status = Status {
-        blocked: should_block,
+        blocked: applied,
         block_reason: reason,
         ip_info,
         vpn_interface,
@@ -192,7 +224,7 @@ async fn transition(
         error: err,
     };
 
-    update_tray(app, should_block);
+    update_tray(app, applied, failed);
     emit(app, &s.status);
 }
 
@@ -204,9 +236,15 @@ fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
     let _ = app.notification().builder().title(title).body(body).show();
 }
 
-fn update_tray(app: &tauri::AppHandle, blocked: bool) {
+fn update_tray(app: &tauri::AppHandle, blocked: bool, failed: bool) {
     if let Some(tray) = app.tray_by_id("main") {
-        let tip = if blocked { "Claude Guard — BLOCKED" } else { "Claude Guard — Protected" };
+        let tip = match (blocked, failed) {
+            // Rules could not be applied — the tray must not read as "Protected".
+            (false, true) => "Claude Guard — FIREWALL ERROR, NOT PROTECTED",
+            (true, true) => "Claude Guard — BLOCKED (rules could not be lifted)",
+            (true, false) => "Claude Guard — BLOCKED",
+            (false, false) => "Claude Guard — Protected",
+        };
         let _ = tray.set_tooltip(Some(tip));
     }
 }

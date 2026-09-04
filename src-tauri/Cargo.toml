@@ -21,11 +21,13 @@ log = "0.4"
 env_logger = "0.11"
 chrono = { version = "0.4", features = ["serde"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-
-[target.'cfg(target_os = "linux")'.dependencies]
-
 [target.'cfg(target_os = "windows")'.dependencies]
+# Elevation check: netsh cannot add firewall rules without an elevated token.
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Threading",
+] }
 
 [profile.release]
 strip = true

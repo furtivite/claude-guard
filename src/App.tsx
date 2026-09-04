@@ -29,6 +29,9 @@ export default function App() {
           check_failed: "Warning: IP check failed. Existing firewall rules preserved.",
           initializing: "Claude Guard starting. Traffic blocked until IP verified.",
           none: "Anthropic traffic restored. Non-Russian IP confirmed.",
+          firewall_error: payload.blocked
+            ? "Warning: firewall rules could not be lifted. Traffic stays blocked."
+            : "Warning: firewall rules could not be applied. Traffic is NOT blocked.",
         };
         setAnnouncement(reasons[payload.block_reason] ?? "");
       }
