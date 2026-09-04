@@ -57,6 +57,15 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
 
   const { blocked, block_reason, ip_info, vpn_interface, vpn_active, guard_enabled } = status;
 
+  // A block driven by one provider while others disagree is the plausible false
+  // positive: geolocation databases differ on the same address. Naming the source
+  // makes that case checkable instead of inexplicable.
+  const disputed = (ip_info?.others.length ?? 0) > 0;
+  const reasonDetail =
+    block_reason === "russian_ip" && ip_info?.source
+      ? `Russian IP detected — per ${ip_info.source}`
+      : blockReasonLabel(block_reason);
+
   const isUncertain = block_reason === "check_failed" || block_reason === "initializing";
   // The firewall refused to apply the rules and nothing is in force. This is the one
   // state that must never read as "allowed" — traffic flows and the user is exposed.
@@ -102,7 +111,7 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
                   : "Anthropic allowed"}
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {!guard_enabled ? "Enable in Settings" : blockReasonLabel(block_reason)}
+            {!guard_enabled ? "Enable in Settings" : reasonDetail}
           </p>
         </div>
       </section>
@@ -136,6 +145,21 @@ export default function StatusCard({ status, checking, onCheck, onToggle }: Prop
               {ip_info ? [ip_info.city, ip_info.region].filter(Boolean).join(", ") : "—"}
             </dd>
           </div>
+          <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+            <dt className="text-[var(--text-muted)] text-xs">Checked by</dt>
+            <dd className="text-xs text-right">{ip_info?.source || "—"}</dd>
+          </div>
+          {disputed && (
+            <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
+              <dt className="text-[var(--text-muted)] text-xs">Others said</dt>
+              <dd
+                className={`text-xs text-right ${blocked ? "text-[var(--yellow)]" : ""}`}
+                title="Geolocation databases can disagree on the same address"
+              >
+                {ip_info?.others.join(", ")}
+              </dd>
+            </div>
+          )}
           <div className="flex justify-between items-center py-[5px] border-b border-[var(--border-soft)] last:border-b-0">
             <dt className="text-[var(--text-muted)] text-xs">Provider</dt>
             <dd

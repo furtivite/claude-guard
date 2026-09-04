@@ -6,6 +6,10 @@ export interface IpInfo {
   region: string;
   org: string;
   is_russian: boolean;
+  /** Provider behind the reading shown. */
+  source: string;
+  /** What the other providers that answered reported, as "name: CODE". */
+  others: string[];
 }
 
 export type BlockReason =

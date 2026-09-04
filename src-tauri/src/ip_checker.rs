@@ -35,6 +35,11 @@ pub struct IpInfo {
     pub region: String,
     pub org: String,
     pub is_russian: bool,
+    /// Which provider produced the reading being shown.
+    pub source: String,
+    /// What every other provider that answered reported, as "name: CODE".
+    /// A block that came from one dissenting provider is diagnosable from this.
+    pub others: Vec<String>,
 }
 
 impl IpInfo {
@@ -140,6 +145,10 @@ impl RawIpInfo {
             city: self.city.unwrap_or_else(|| "—".into()),
             region: self.region.or(self.region_name).unwrap_or_else(|| "—".into()),
             org: self.org.or(self.asn_org).unwrap_or_else(|| "—".into()),
+            // Filled in by combine(), which is the only place that knows which
+            // provider a reading came from and what the others said.
+            source: String::new(),
+            others: Vec::new(),
         }
     }
 }
@@ -172,21 +181,36 @@ pub async fn get() -> Result<IpInfo, String> {
 /// Combines what the providers returned into a single verdict.
 ///
 /// Pure so the precedence rules can be tested without touching the network.
-/// Readings are `(provider is detailed, reading)` pairs.
-fn combine(readings: Vec<(bool, IpInfo)>, errors: Vec<String>) -> Result<IpInfo, String> {
+/// Readings are `(provider name, provider is detailed, reading)`.
+fn combine(
+    readings: Vec<(&'static str, bool, IpInfo)>,
+    errors: Vec<String>,
+) -> Result<IpInfo, String> {
     if readings.is_empty() {
         return Err(format!("every IP provider failed: {}", errors.join("; ")));
     }
 
-    // One RU reading is enough. Show that provider's data, so the UI explains the
-    // block with the evidence that caused it.
-    if let Some((_, russian)) = readings.iter().find(|(_, i)| i.is_russian) {
-        return Ok(russian.clone());
-    }
+    // One RU reading is enough — the asymmetry is deliberate. Show that provider's
+    // data so the UI explains the block with the evidence that caused it.
+    let chosen = readings
+        .iter()
+        .position(|(_, _, i)| i.is_russian)
+        // Unanimously non-RU: prefer the reading that carries city and organisation.
+        .or_else(|| readings.iter().position(|(_, detailed, _)| *detailed))
+        .unwrap_or(0);
 
-    // Unanimously non-RU: prefer the reading that carries city and organisation.
-    let best = readings.iter().find(|(detailed, _)| *detailed).unwrap_or(&readings[0]);
-    Ok(best.1.clone())
+    let mut info = readings[chosen].2.clone();
+    info.source = readings[chosen].0.to_string();
+    // Geolocation databases genuinely disagree on the same address — one may be
+    // working from a stale registry allocation. Recording the dissent turns an
+    // otherwise inexplicable block into something the user can check.
+    info.others = readings
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != chosen)
+        .map(|(_, (name, _, r))| format!("{name}: {}", r.country_code))
+        .collect();
+    Ok(info)
 }
 
 async fn fetch() -> Result<IpInfo, String> {
@@ -211,7 +235,7 @@ async fn fetch() -> Result<IpInfo, String> {
         match result {
             Ok(info) => {
                 log::debug!("{}: {} ({})", provider.name(), info.country_code, info.ip);
-                readings.push((provider.is_detailed(), info));
+                readings.push((provider.name(), provider.is_detailed(), info));
             }
             Err(e) => errors.push(format!("{}: {e}", provider.name())),
         }
@@ -256,6 +280,8 @@ mod tests {
             city: city.into(),
             region: "—".into(),
             org: "—".into(),
+            source: String::new(),
+            others: Vec::new(),
         }
     }
 
@@ -327,26 +353,43 @@ mod tests {
 
     #[test]
     fn a_single_russian_reading_outvotes_the_others() {
-        let out =
-            combine(vec![(true, info("DE", "Berlin")), (false, info("RU", "Moscow"))], vec![])
-                .expect("readings present");
+        let out = combine(
+            vec![
+                ("ipinfo", true, info("DE", "Berlin")),
+                ("dissenter", false, info("RU", "Moscow")),
+            ],
+            vec![],
+        )
+        .expect("readings present");
         assert!(out.is_russian);
         assert_eq!(out.city, "Moscow");
+        // The lone provider that caused the block must be named, and the ones that
+        // disagreed recorded, or a false block is impossible to explain.
+        assert_eq!(out.source, "dissenter");
+        assert_eq!(out.others, ["ipinfo: DE"]);
     }
 
     #[test]
     fn unanimous_non_russian_prefers_the_detailed_provider() {
-        let out = combine(vec![(false, info("DE", "—")), (true, info("DE", "Berlin"))], vec![])
-            .expect("readings present");
+        let out = combine(
+            vec![("plain", false, info("DE", "—")), ("ipinfo", true, info("DE", "Berlin"))],
+            vec![],
+        )
+        .expect("readings present");
         assert!(!out.is_russian);
         assert_eq!(out.city, "Berlin");
+        assert_eq!(out.source, "ipinfo");
+        assert_eq!(out.others, ["plain: DE"]);
     }
 
     #[test]
     fn a_lone_surviving_provider_still_decides() {
-        let out = combine(vec![(false, info("NL", "—"))], vec!["ipinfo: timeout".into()])
-            .expect("one reading is enough");
+        let out =
+            combine(vec![("country.is", false, info("NL", "—"))], vec!["ipinfo: timeout".into()])
+                .expect("one reading is enough");
         assert!(!out.is_russian);
         assert_eq!(out.country_code, "NL");
+        assert_eq!(out.source, "country.is");
+        assert!(out.others.is_empty());
     }
 }
