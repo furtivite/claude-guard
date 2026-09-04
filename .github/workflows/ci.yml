@@ -62,6 +62,11 @@ jobs:
           npm ci
           npm run build
 
+      # On Windows tauri-build embeds icons/icon.ico as a resource, and the generated
+      # icon formats are gitignored — without this the crate cannot compile at all.
+      - name: Generate icons
+        run: npx tauri icon src-tauri/icons/icon.png
+
       # Formatting is platform-independent; checking it once avoids three identical runs.
       - name: rustfmt
         if: matrix.platform == 'ubuntu-22.04'
