@@ -70,6 +70,11 @@ jobs:
         shell: bash
         run: |
           section=$(awk -v tag="## ${GITHUB_REF_NAME}" 'index($0,tag)==1{f=1;next} /^## /{f=0} f' CHANGELOG.md)
+          # A missing section would otherwise publish a release with no notes at all
+          if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+            echo "no CHANGELOG.md section found for ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
           {
             echo "body<<RELEOF"
             printf '%s\n\n' "$section"
