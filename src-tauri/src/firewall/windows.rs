@@ -8,9 +8,7 @@
 //! missing elevation above all — must surface as `Err`; reporting `Ok` here would
 //! leave the UI showing "blocked" while traffic keeps flowing.
 
-use super::{Firewall, BLOCKED_DOMAINS};
-use std::collections::HashSet;
-use std::net::ToSocketAddrs;
+use super::{resolve_blocked_ips, Firewall};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -117,18 +115,7 @@ fn remove_rules(keep: Option<u128>) -> Result<(), String> {
 }
 
 fn resolve_domains() -> Vec<String> {
-    let mut seen = HashSet::new();
-    for domain in BLOCKED_DOMAINS {
-        match format!("{domain}:443").to_socket_addrs() {
-            Ok(addrs) => {
-                for addr in addrs {
-                    seen.insert(addr.ip().to_string());
-                }
-            }
-            Err(e) => log::warn!("DNS resolve failed for {domain}: {e}"),
-        }
-    }
-    seen.into_iter().collect()
+    resolve_blocked_ips().iter().map(|ip| ip.to_string()).collect()
 }
 
 impl Firewall for WindowsFirewall {
