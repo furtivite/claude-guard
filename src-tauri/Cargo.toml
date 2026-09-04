@@ -20,6 +20,7 @@ network-interface = "2"
 log = "0.4"
 env_logger = "0.11"
 chrono = { version = "0.4", features = ["serde"] }
+tauri-plugin-autostart = "2.5.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Elevation check: netsh cannot add firewall rules without an elevated token.

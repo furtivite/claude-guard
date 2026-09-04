@@ -12,8 +12,10 @@ case "$OS" in
     sudo pfctl -a claude_guard -F rules 2>/dev/null && echo "✓ PF rules cleared" || true
     # Remove sudoers entry
     sudo rm -f /etc/sudoers.d/claude-guard && echo "✓ sudoers entry removed"
-    # Remove legacy LaunchAgent if present
+    # Remove the login item (autostart) and any legacy LaunchAgent
     rm -f "$HOME/Library/LaunchAgents/sh.claudeguard.plist" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/Claude Guard.plist" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/claude-guard.plist" 2>/dev/null || true
     # Remove app bundle
     if [[ -d "/Applications/Claude Guard.app" ]]; then
       read -rp "Remove /Applications/Claude Guard.app? [Y/n]: " RM_APP
@@ -35,6 +37,9 @@ case "$OS" in
     done
     # Remove sudoers entry
     sudo rm -f /etc/sudoers.d/claude-guard && echo "✓ sudoers entry removed"
+    # Remove the login item (autostart)
+    rm -f "$HOME/.config/autostart/Claude Guard.desktop" 2>/dev/null || true
+    rm -f "$HOME/.config/autostart/claude-guard.desktop" 2>/dev/null || true
     # Remove app data
     rm -rf "$HOME/.local/share/sh.claudeguard" 2>/dev/null || true
     ;;
@@ -42,6 +47,8 @@ case "$OS" in
   *)
     echo "Windows: remove firewall rules manually or run as Administrator:"
     echo "  Get-NetFirewallRule -DisplayName 'ClaudeGuard_*' | Remove-NetFirewallRule"
+    echo "Also remove the autostart entry if it was enabled:"
+    echo "  Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'Claude Guard'"
     ;;
 esac
 

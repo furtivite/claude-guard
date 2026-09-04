@@ -19,6 +19,7 @@ pub struct Config {
     pub enabled: bool,
     pub check_interval_secs: u64,
     pub show_tray: bool,
+    pub autostart: bool,
     pub vpn_mode: VpnMode,
     pub vpn_port: u16,
     pub vpn_process: String,
@@ -30,6 +31,9 @@ impl Default for Config {
             enabled: false,
             check_interval_secs: 30,
             show_tray: true,
+            // Off by default: registering a login item changes state outside the app,
+            // so it is the user's call rather than something installing itself.
+            autostart: false,
             vpn_mode: VpnMode::IpOnly,
             vpn_port: 10808,
             vpn_process: String::new(),
@@ -56,6 +60,7 @@ impl Config {
                 store.get("check_interval").and_then(|v| v.as_u64()).unwrap_or(30),
             ),
             show_tray: store.get("show_tray").and_then(|v| v.as_bool()).unwrap_or(true),
+            autostart: store.get("autostart").and_then(|v| v.as_bool()).unwrap_or(false),
             vpn_mode,
             vpn_port: store.get("vpn_port").and_then(|v| v.as_u64()).unwrap_or(10808) as u16,
             vpn_process: store
@@ -70,6 +75,7 @@ impl Config {
             "enabled": self.enabled,
             "check_interval": self.check_interval_secs,
             "show_tray": self.show_tray,
+            "autostart": self.autostart,
             "vpn_mode": match self.vpn_mode {
                 VpnMode::IpOnly  => "ip_only",
                 VpnMode::Port    => "port",
@@ -99,6 +105,12 @@ mod tests {
         assert!(!c.enabled);
         assert_eq!(c.vpn_mode, VpnMode::IpOnly);
         assert_eq!(c.check_interval_secs, 30);
+    }
+
+    #[test]
+    fn autostart_is_off_until_asked_for() {
+        assert!(!Config::default().autostart);
+        assert_eq!(Config::default().to_json()["autostart"], false);
     }
 
     #[test]

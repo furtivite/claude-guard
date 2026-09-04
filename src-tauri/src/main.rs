@@ -13,6 +13,7 @@ use tauri::{
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager, Runtime, WebviewWindowBuilder,
 };
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 
@@ -25,6 +26,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let cfg = Config::load(app.handle());
             let state: SharedState = Arc::new(Mutex::new(GuardState::new()));
@@ -38,6 +43,8 @@ pub fn run() {
             if cfg.show_tray {
                 setup_tray(app, cfg.enabled)?;
             }
+
+            sync_autostart(app.handle(), cfg.autostart);
 
             WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
                 .title("Claude Guard")
@@ -169,8 +176,15 @@ async fn cmd_save_settings(
     settings: serde_json::Value,
 ) -> Result<(), String> {
     // Whitelist known keys so the store can't be polluted with arbitrary entries.
-    const ALLOWED_KEYS: &[&str] =
-        &["enabled", "check_interval", "show_tray", "vpn_mode", "vpn_port", "vpn_process"];
+    const ALLOWED_KEYS: &[&str] = &[
+        "enabled",
+        "check_interval",
+        "show_tray",
+        "vpn_mode",
+        "vpn_port",
+        "vpn_process",
+        "autostart",
+    ];
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     if let Some(obj) = settings.as_object() {
         for (k, v) in obj {
@@ -181,7 +195,27 @@ async fn cmd_save_settings(
             }
         }
     }
-    store.save().map_err(|e| e.to_string())
+    store.save().map_err(|e| e.to_string())?;
+    sync_autostart(&app, Config::load(&app).autostart);
+    Ok(())
+}
+
+/// Registers or removes the login item to match the stored setting.
+///
+/// Reconciled rather than toggled, so a login item removed behind the app's back
+/// is restored on the next save. Failures are logged, never fatal: autostart is a
+/// convenience and must not stop settings from being written.
+fn sync_autostart(app: &tauri::AppHandle, wanted: bool) {
+    let manager = app.autolaunch();
+    let current = manager.is_enabled().unwrap_or(false);
+    if current == wanted {
+        return;
+    }
+    let result = if wanted { manager.enable() } else { manager.disable() };
+    match result {
+        Ok(()) => log::info!("autostart set to {wanted}"),
+        Err(e) => log::error!("could not set autostart to {wanted}: {e}"),
+    }
 }
 
 #[tauri::command]

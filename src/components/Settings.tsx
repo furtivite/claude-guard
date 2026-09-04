@@ -6,6 +6,7 @@ const DEFAULTS: SettingsType = {
   enabled: true,
   check_interval: 30,
   show_tray: true,
+  autostart: false,
   vpn_mode: "ip_only",
   vpn_port: 10808,
   vpn_process: "",
@@ -99,6 +100,23 @@ export default function Settings() {
             checked={settings.show_tray}
             aria-checked={settings.show_tray}
             onChange={(e) => set("show_tray", e.target.checked)}
+          />
+        </label>
+
+        <label className="flex justify-between items-center py-1 gap-3">
+          <span className="text-[13px] cursor-pointer">
+            Start at login
+            <span className="block text-[11px] text-[var(--text-muted)]">
+              Firewall rules do not survive a reboot
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            className="toggle"
+            role="switch"
+            checked={settings.autostart}
+            aria-checked={settings.autostart}
+            onChange={(e) => set("autostart", e.target.checked)}
           />
         </label>
       </section>

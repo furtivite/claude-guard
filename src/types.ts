@@ -28,6 +28,7 @@ export interface Settings {
   enabled: boolean;
   check_interval: number;
   show_tray: boolean;
+  autostart: boolean;
   vpn_mode: VpnMode;
   vpn_port: number;
   vpn_process: string;
